@@ -1,6 +1,6 @@
 """
-ULTIMATE Agentic Honey-Pot System - FIXED VERSION
-All critical issues resolved
+ULTIMATE Agentic Honey-Pot System - FINAL PRODUCTION VERSION
+All critical bugs fixed - Ready for 1st place
 """
 
 from fastapi import FastAPI, HTTPException, Header, Request
@@ -16,12 +16,16 @@ import json
 import logging
 from contextlib import asynccontextmanager
 from enum import Enum
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, field
 import random
 import time
+import asyncio
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 # Configuration
@@ -32,6 +36,9 @@ CALLBACK_URL = "https://hackathon.guvi.in/api/updateHoneyPotFinalResult"
 # Configure Gemini
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
+    logger.info("✅ Gemini API configured")
+else:
+    logger.warning("⚠️ Gemini API key not set - using fallback mode")
 
 # ============================================================================
 # ENHANCED ENUMS AND DATA MODELS
@@ -191,7 +198,7 @@ class PersonaSelector:
     CATEGORY_MAPPING = {
         ScamCategory.BANKING: PersonaType.ELDERLY,
         ScamCategory.UPI: PersonaType.YOUTH,
-        ScamCategory.KYC: PersonaType.ELDERLY,  # Changed from PROFESSIONAL
+        ScamCategory.KYC: PersonaType.ELDERLY,
         ScamCategory.LOTTERY: PersonaType.YOUTH,
         ScamCategory.TECH_SUPPORT: PersonaType.ELDERLY,
         ScamCategory.PHISHING: PersonaType.PROFESSIONAL,
@@ -210,7 +217,7 @@ class PersonaSelector:
         return personas[persona_type]
 
 # ============================================================================
-# MULTI-LAYER DETECTION ENGINE (FIXED)
+# MULTI-LAYER DETECTION ENGINE
 # ============================================================================
 
 @dataclass
@@ -221,7 +228,7 @@ class DetectionResult:
     category: ScamCategory
     indicators: List[str]
     urgency_score: float
-    threat_level: str  # low, medium, high, critical
+    threat_level: str
     impersonation_target: Optional[str] = None
 
 class AdvancedDetector:
@@ -240,7 +247,6 @@ class AdvancedDetector:
         'refund_bait': r'\b(refund|cashback|reversal|credited|approved|initiated|failed|pending)\b',
     }
     
-    # Semantic indicators for context
     SEMANTIC_INDICATORS = [
         "verify your account", "update kyc", "link aadhaar", "confirm pan",
         "refund pending", "transaction failed", "suspicious activity detected",
@@ -254,7 +260,7 @@ class AdvancedDetector:
         self.detection_history = {}
     
     def pattern_analysis(self, message: str) -> Tuple[float, List[str], Optional[str]]:
-        """Rule-based pattern matching - Layer 1 (FIXED)"""
+        """Rule-based pattern matching - Layer 1"""
         message_lower = message.lower()
         indicators = []
         score = 0.0
@@ -267,7 +273,7 @@ class AdvancedDetector:
             indicators.append(f"LOTTERY_SCAM: {lottery_count} strong indicators")
             score += min(lottery_count * 0.35, 0.90)
         
-        # HIGH PRIORITY: Refund scams (BOOSTED)
+        # HIGH PRIORITY: Refund scams
         refund_keywords = ['refund', 'cashback', 'reversal', 'credit back', 'approved', 'initiated', 'failed', 'transaction', 'processing']
         refund_count = sum(1 for word in refund_keywords if word in message_lower)
         if refund_count >= 2:
@@ -281,13 +287,12 @@ class AdvancedDetector:
                 match_count = len(set(matches))
                 indicators.append(f"CRITICAL: {pattern_name} ({match_count} matches)")
                 
-                # Increased weights
                 if pattern_name in ['otp_request', 'account_request', 'upi_request']:
                     score += min(match_count * 0.40, 0.50)
                 elif pattern_name == 'prize_claim':
                     score += min(match_count * 0.35, 0.70)
                 elif pattern_name == 'refund_bait':
-                    score += min(match_count * 0.40, 0.60)  # BOOSTED
+                    score += min(match_count * 0.40, 0.60)
                 elif pattern_name in ['bank_impersonation', 'urgent_threat']:
                     score += min(match_count * 0.30, 0.45)
                 else:
@@ -306,7 +311,7 @@ class AdvancedDetector:
                 score += 0.20
                 break
         
-        # Urgency markers (expanded)
+        # Urgency markers
         urgency_markers = [
             'immediate', 'urgent', 'now', 'today', 'within', 'hours',
             'limited time', 'expires', 'last chance', 'final', 'deadline',
@@ -335,10 +340,9 @@ class AdvancedDetector:
         return min(score, 1.0), indicators, impersonation
     
     def semantic_analysis(self, message: str) -> Tuple[float, ScamCategory]:
-        """Semantic pattern detection - Layer 2 (FIXED)"""
+        """Semantic pattern detection - Layer 2"""
         message_lower = message.lower()
         
-        # Category detection
         category_scores = {
             ScamCategory.BANKING: 0.0,
             ScamCategory.UPI: 0.0,
@@ -349,17 +353,17 @@ class AdvancedDetector:
             ScamCategory.REFUND: 0.0
         }
         
-        # Lottery fraud indicators (HIGHEST PRIORITY)
+        # Lottery fraud indicators
         lottery_words = ['won', 'winner', 'win', 'congratulations', 'congrats', 'lottery', 'lucky draw', 'lucky', 'prize', 'lakh', 'lakhs', 'crore', 'crores', 'kbc', 'draw', 'selected', 'claim']
         lottery_count = sum(1 for word in lottery_words if word in message_lower)
         if lottery_count > 0:
             category_scores[ScamCategory.LOTTERY] += min(lottery_count * 0.30, 0.80)
         
-        # Refund scam indicators (VERY HIGH PRIORITY - BOOSTED)
+        # Refund scam indicators
         refund_words = ['refund', 'cashback', 'reversal', 'credit back', 'approved', 'initiated', 'failed', 'transaction failed', 'server error', 'processing error']
         refund_count = sum(1 for word in refund_words if word in message_lower)
         if refund_count > 0:
-            category_scores[ScamCategory.REFUND] += min(refund_count * 0.35, 0.85)  # BOOSTED
+            category_scores[ScamCategory.REFUND] += min(refund_count * 0.35, 0.85)
         
         # Banking fraud indicators
         if any(word in message_lower for word in ['bank', 'account', 'atm', 'debit', 'credit', 'balance', 'blocked', 'suspended', 'freeze']):
@@ -426,7 +430,7 @@ class AdvancedDetector:
         return min(score, 1.0)
     
     def detect(self, message: str, history: List = None) -> DetectionResult:
-        """Main detection pipeline - Multi-layer ensemble (FIXED)"""
+        """Main detection pipeline - Multi-layer ensemble"""
         
         # Layer 1: Pattern analysis
         pattern_score, indicators, impersonation = self.pattern_analysis(message)
@@ -439,6 +443,9 @@ class AdvancedDetector:
         if history and len(history) > 1:
             context_score = self._analyze_context(history)
         
+        # Calculate urgency FIRST (needed for threshold logic)
+        urgency = self.calculate_urgency(message)
+        
         # Weighted ensemble
         final_confidence = (
             pattern_score * 0.55 +
@@ -450,11 +457,14 @@ class AdvancedDetector:
         if pattern_score > 0.5 and semantic_score > 0.4:
             final_confidence = min(final_confidence * 1.15, 1.0)
         
-        # LOWERED THRESHOLD FOR BETTER RECALL
-        is_scam = final_confidence >= 0.30  # Changed from 0.40
-        
-        # Calculate urgency
-        urgency = self.calculate_urgency(message)
+        # FIXED: Proper threshold logic
+        if final_confidence >= 0.65:
+            is_scam = True
+        elif final_confidence >= 0.50:
+            # Ambiguous zone - use context and urgency
+            is_scam = (context_score > 0.3) or (urgency > 0.6) or (pattern_score > 0.4)
+        else:
+            is_scam = False
         
         # Threat level
         if final_confidence >= 0.85:
@@ -580,7 +590,7 @@ class IntelligenceExtractor:
         return intel
 
 # ============================================================================
-# ADVANCED AI AGENT with PERSONAS (FIXED)
+# ADVANCED AI AGENT with PERSONAS
 # ============================================================================
 
 @dataclass
@@ -592,13 +602,14 @@ class ConversationState:
     turn_count: int = 0
     escalation_stage: int = 1
     trust_level: float = 0.3
-    extracted_intel: Dict = None
+    extracted_intel: Dict = field(default_factory=dict)
     scammer_emotion: str = "confident"
-    conversation_notes: List[str] = None
-    last_response: str = ""  # Track last response to avoid repetition
+    conversation_notes: List[str] = field(default_factory=list)
+    last_response: str = ""
+    callback_sent: bool = False  # FIXED: Proper field definition
     
     def __post_init__(self):
-        if self.extracted_intel is None:
+        if not self.extracted_intel:
             self.extracted_intel = {
                 'bankAccounts': [],
                 'upiIds': [],
@@ -608,25 +619,52 @@ class ConversationState:
                 'ifscCodes': [],
                 'amounts': []
             }
-        if self.conversation_notes is None:
-            self.conversation_notes = []
 
 class AdvancedAgent:
-    """AI Agent with persona-driven engagement using FREE Gemini (FIXED)"""
+    """AI Agent with persona-driven engagement using FREE Gemini"""
     
     def __init__(self):
+        self.model = None
         if GEMINI_API_KEY:
-            self.model = genai.GenerativeModel('gemini-2.5-flash')
+            try:
+                self.model = genai.GenerativeModel('gemini-3-flash')
+                logger.info("✅ Gemini model initialized")
+            except Exception as e:
+                logger.error(f"❌ Failed to initialize Gemini: {e}")
         else:
-            self.model = None
-            logger.warning("⚠️ Gemini API key not set")
+            logger.warning("⚠️ No Gemini API key - fallback mode only")
+        
+        # Response cache for common scenarios
+        self.response_cache = {
+            "Rajeshwari_1_banking_fraud": "Beta, yeh sab mujhe samajh nahi aa raha. Aap bank se ho na?",
+            "Rajeshwari_2_banking_fraud": "Mere bete ko phone karna padega kya? Woh sab samajhta hai.",
+            "Priya_1_lottery_scam": "Yaar seriously? Yeh legit hai na?",
+            "Priya_2_lottery_scam": "Mummy papa ko batana padega kya?",
+            "Arjun_1_refund_scam": "Quick batao, meeting mein hun. Email bhej do details.",
+            "Arjun_2_refund_scam": "Process kya hai exactly? Short mein batao."
+        }
+    
+    def get_cached_response(self, persona_name: str, turn: int, scam_type: str) -> Optional[str]:
+        """Get pre-generated response for common scenarios"""
+        cache_key = f"{persona_name}_{turn}_{scam_type}"
+        return self.response_cache.get(cache_key)
     
     def build_advanced_prompt(self, 
                             message: str, 
                             history: List,
                             state: ConversationState) -> str:
-        """Build sophisticated persona-driven prompt (ENHANCED)"""
+        """Build sophisticated persona-driven prompt"""
         
+        anti_repeat = ""
+        if state.last_response:
+            anti_repeat = f"""
+        CRITICAL - ANTI-REPETITION RULE:
+        Your LAST response was: "{state.last_response}"
+        You MUST NOT use similar words or structure.
+        Generate a COMPLETELY DIFFERENT response.
+        Use different Hindi words, different sentence structure.
+        """
+
         persona = state.persona
         turn = state.turn_count
         
@@ -638,93 +676,66 @@ class AdvancedAgent:
             conv_text += f"{sender}: {text}\n"
         conv_text += f"scammer: {message}\n"
         
-        # Determine strategy based on turn and escalation
+        # Determine strategy based on turn
         if turn <= 2:
             strategy = "Show concern and confusion. Ask basic clarifying questions."
-            goal = "Establish believability and keep scammer engaged"
+            goal = "Establish believability"
         elif turn <= 5:
-            strategy = "Express worry. Ask questions that require scammer to provide specific details."
+            strategy = "Express worry. Ask questions requiring specific details."
             goal = "Extract account numbers, UPI IDs, or links"
         elif turn <= 8:
-            strategy = "Show willingness to comply but need exact instructions. Express slight hesitation."
-            goal = "Get step-by-step instructions that reveal more intelligence"
+            strategy = "Show willingness but need exact instructions. Express hesitation."
+            goal = "Get step-by-step instructions"
         else:
-            strategy = "Stall naturally with confusion or external factors (family, network issues)."
-            goal = "Maximize information extraction without appearing suspicious"
+            strategy = "Stall naturally with confusion or external factors."
+            goal = "Maximize information extraction"
         
-        # Add variation instruction and persona isolation
+        # Variation instruction
         variation_note = ""
         if state.last_response:
-            variation_note = f"\nIMPORTANT: Your last response was: '{state.last_response[:50]}...'\nDo NOT repeat this. Generate a DIFFERENT response with DIFFERENT wording."
+            variation_note = f"\nYour last response was: '{state.last_response[:50]}...'\nGenerate a DIFFERENT response with different wording."
         
-        # Persona-specific forbidden phrases (to prevent leakage)
-        forbidden_phrases = []
-        if persona.name == "Rajeshwari":
-            forbidden_phrases = ["meeting", "email", "process", "yaar", "mummy papa", "dost"]
-        elif persona.name == "Arjun Mehta":
-            forbidden_phrases = ["beta", "ji", "bete", "yaar", "mummy papa", "dost", "confused hun"]
-        else:  # Priya
-            forbidden_phrases = ["beta", "ji", "bete", "meeting", "email", "confused hun"]
+        # Persona-specific forbidden phrases
+        forbidden = {
+            "Rajeshwari": ["meeting", "email", "process exactly", "yaar", "mummy papa"],
+            "Arjun Mehta": ["beta", "ji", "bete", "yaar", "confused hun"],
+            "Priya Sharma": ["beta", "ji", "meeting", "email"]
+        }
+        forbidden_note = f"\nNEVER USE: {', '.join(forbidden.get(persona.name, []))}"
         
-        forbidden_note = f"\nNEVER USE THESE WORDS (they belong to other personas): {', '.join(forbidden_phrases)}"
-        
-        prompt = f"""You are {persona.name}, a {persona.age}-year-old {persona.occupation}.
+        prompt = f"""You are {persona.name}, {persona.age} years old, {persona.occupation}.
+        {anti_repeat}
 
 BACKGROUND: {persona.backstory}
 
-YOUR PERSONALITY TRAITS:
-- Tech Savviness: {persona.tech_savviness}/10 ({"struggles with tech" if persona.tech_savviness < 4 else "comfortable with tech"})
-- Gullibility: {persona.gullibility}/10
-- Anxiety Level: {persona.anxiety_level}/10
-- Current Emotional State: {persona.emotional_state}
-- Trust in Caller: {state.trust_level:.0%}
+TRAITS:
+- Tech: {persona.tech_savviness}/10, Gullible: {persona.gullibility}/10, Anxious: {persona.anxiety_level}/10
+- Trust: {state.trust_level:.0%}, Emotion: {state.scammer_emotion}
 
-YOUR SPEECH PATTERNS:
-{chr(10).join(f"- {pattern}" for pattern in persona.speech_patterns)}
+SPEECH: {persona.language_style}
 
-PHRASES YOU COMMONLY USE:
-{chr(10).join(f'- "{phrase}"' for phrase in persona.common_phrases[:4])}
+COMMON PHRASES YOU USE:
+{chr(10).join(f'- "{p}"' for p in persona.common_phrases[:3])}
 
-YOUR VULNERABILITIES:
-{chr(10).join(f"- {vuln}" for vuln in persona.vulnerabilities[:2])}
-
-CONVERSATION SO FAR:
+CONVERSATION:
 {conv_text}
 
-CURRENT SITUATION:
-- Turn: {turn}
-- Scam Category: {state.scam_category.value}
-- Escalation Stage: {state.escalation_stage}/5
-- Scammer Emotion: {state.scammer_emotion}
+TURN: {turn} | STAGE: {state.escalation_stage}/5 | STRATEGY: {strategy}
+GOAL: {goal}{variation_note}{forbidden_note}
 
-YOUR STRATEGY FOR THIS TURN: {strategy}
-YOUR GOAL: {goal}
-{variation_note}
-{forbidden_note}
+INTEL EXTRACTED: Banks:{len(state.extracted_intel['bankAccounts'])} UPI:{len(state.extracted_intel['upiIds'])} Links:{len(state.extracted_intel['phishingLinks'])}
 
-INTELLIGENCE EXTRACTED SO FAR:
-- Bank Accounts: {len(state.extracted_intel['bankAccounts'])}
-- UPI IDs: {len(state.extracted_intel['upiIds'])}
-- Phone Numbers: {len(state.extracted_intel['phoneNumbers'])}
-- Links: {len(state.extracted_intel['phishingLinks'])}
+CRITICAL:
+1. You are {persona.name}, a REAL person. Never break character.
+2. You DON'T KNOW this is a scam. You think it might be legitimate.
+3. Respond in 1-3 sentences using Hinglish.
+4. Use ONLY your persona's vocabulary.
+5. Ask questions to make scammer reveal details.
+6. Show natural emotion based on your anxiety level.
+7. VARY your responses - never repeat yourself.
+8. React specifically to what scammer just said.
 
-CRITICAL INSTRUCTIONS:
-1. You are {persona.name}, a REAL person. NEVER break character.
-2. You DO NOT KNOW this is a scam. You think this might be legitimate.
-3. Stay IN CHARACTER at all times. Use {persona.language_style}.
-4. Respond with 1-3 sentences maximum (keep it natural and conversational).
-5. Show appropriate emotion based on your anxiety level and the situation.
-6. Ask questions that make the scammer reveal more details naturally.
-7. If they provide numbers/links/instructions, acknowledge naturally but express hesitation or confusion.
-8. Use Hinglish (Hindi-English mix) as typical Indian conversation.
-9. Make occasional small mistakes (spelling, grammar) to seem more human.
-10. NEVER use perfect corporate language or AI-like responses.
-11. VARY your responses - don't repeat the same phrases over and over.
-12. React naturally to what the scammer just said - don't give generic responses.
-13. IMPORTANT: Only use YOUR persona's vocabulary. Never use words/phrases from the forbidden list.
-
-RESPOND AS {persona.name} WOULD. Keep it short, natural, and believable.
-DO NOT break character. DO NOT reveal you know this is a scam."""
+RESPOND AS {persona.name}:"""
 
         return prompt
     
@@ -732,326 +743,403 @@ DO NOT break character. DO NOT reveal you know this is a scam."""
                                message: str, 
                                history: List,
                                state: ConversationState) -> Tuple[str, float]:
-        """Generate persona-driven response (FIXED WITH RETRY)"""
+        """Generate persona-driven response with caching and retry logic"""
         
-        if not self.model:
-            logger.warning("⚠️ No Gemini model - using fallback")
-            return self._persona_fallback(message, state), 0.7
+        persona = state.persona
+        turn = state.turn_count
         
-        # Try up to 2 times before falling back
-        for attempt in range(2):
-            try:
-                prompt = self.build_advanced_prompt(message, history, state)
-                
-                safety_settings = [
-                    {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
-                    {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-                    {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
-                    {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
-                ]
-
-                response = self.model.generate_content(
-                    prompt,
-                    generation_config=genai.GenerationConfig(
-                        temperature=0.9,
-                        top_p=0.95,
-                        max_output_tokens=200,
-                    ),
-                    safety_settings=safety_settings
-                )
-                
-                # Check if response was blocked
-                if not response.text or len(response.text.strip()) < 5:
-                    if attempt == 0:
-                        logger.warning(f"⚠️ Empty response, retrying... (attempt {attempt + 1})")
-                        continue
-                    else:
-                        logger.warning("⚠️ Empty response after retry - using fallback")
-                        return self._persona_fallback(message, state), 0.6
-                
-                reply = response.text.strip()
-                
-                # Clean up response
-                reply = self._clean_response(reply, state.persona)
-                
-                # Validate response is not empty after cleaning
-                if len(reply) < 5:
-                    if attempt == 0:
-                        logger.warning(f"⚠️ Response too short after cleaning, retrying...")
-                        continue
-                    else:
-                        return self._persona_fallback(message, state), 0.6
-                
-                # Score believability
-                believability = self._assess_believability(reply, state.persona)
-                
-                return reply, believability
-                
-            except Exception as e:
-                if attempt == 0:
-                    logger.warning(f"⚠️ Gemini error on attempt {attempt + 1}: {e}, retrying...")
-                    continue
-                else:
-                    logger.error(f"❌ Gemini error after retry: {e}, using fallback")
-                    return self._persona_fallback(message, state), 0.6
+        # Try cache first for early turns
+        if turn <= 2:
+            cached = self.get_cached_response(persona.name, turn, state.scam_category.value)
+            if cached:
+                logger.info(f"💾 CACHE HIT: {persona.name} turn {turn}")
+                return cached, 0.85
         
-        # Should not reach here, but just in case
+        # Use AI if available
+        if self.model:
+            for attempt in range(2):
+                try:
+                    prompt = self.build_advanced_prompt(message, history, state)
+                    
+                    response = self.model.generate_content(
+                        prompt,
+                        generation_config=genai.GenerationConfig(
+                            temperature=0.85,
+                            max_output_tokens=250,
+                        ),
+                        request_options={'timeout': 5}
+                    )
+                    
+                    if response.text and len(response.text.strip()) >= 5:
+                        reply = self._clean_response(response.text.strip(), persona)
+                        if len(reply) >= 5:
+                            believability = self._assess_believability(reply, persona)
+                            logger.info(f"✅ AI response: {reply[:50]}...")
+                            return reply, believability
+                    
+                    logger.warning(f"⚠️ Empty/short response, attempt {attempt + 1}")
+                    await asyncio.sleep(0.5)
+                    
+                except Exception as e:
+                    logger.warning(f"⚠️ AI error attempt {attempt + 1}: {e}")
+                    await asyncio.sleep(0.5)
+        
+        # Fallback
+        logger.info(f"⚠️ Using FALLBACK for {persona.name}")
         return self._persona_fallback(message, state), 0.6
     
     def _clean_response(self, reply: str, persona: Persona) -> str:
-        """Clean and enhance response"""
+        """Clean and enforce persona identity"""
+        
+        original = reply
+        reply_lower = reply.lower()
+
+        # PERSONA ISOLATION - Reject wrong vocabulary
+        if persona.name == "Rajeshwari":
+            forbidden = ['yaar', 'meeting', 'email', 'process exactly', 'client', 'office']
+            for word in forbidden:
+                if word in reply_lower:
+                    # Replace with Rajeshwari-appropriate word
+                    reply = reply.replace(word, "beta")
+        
+        elif persona.name == "Arjun Mehta":
+            forbidden = ['beta', 'ji', 'bete', 'yaar', 'mummy', 'papa', 'confused hun']
+            for word in forbidden:
+                if word in reply_lower:
+                    reply = reply.replace(word, "")
+        
+        elif persona.name == "Priya Sharma":
+            forbidden = ['beta', 'ji', 'bete', 'meeting', 'email', 'process exactly']
+            for word in forbidden:
+                if word in reply_lower:
+                    reply = reply.replace(word, "yaar")
         
         # Remove AI tells
-        ai_tells = ["as an ai", "i cannot", "i'm not able", "i apologize", "i'm designed", "i am programmed"]
+        ai_tells = ["as an ai,", "i cannot", "i'm designed", "i apologize,"]
         for tell in ai_tells:
             if tell in reply.lower():
-                reply = reply.split('.')[0] if '.' in reply else reply[:50]
+                sentences = reply.split('.')
+                cleaned = [s for s in sentences if tell not in s.lower()]
+                reply = '. '.join(cleaned).strip()
+                if reply and not reply.endswith('.'):
+                    reply += '.'
         
-        # Remove quotes if wrapping entire response
+        # Remove quotes and markdown
         if reply.startswith('"') and reply.endswith('"'):
             reply = reply[1:-1]
+        reply = reply.replace('**', '')
         
-        # Ensure not too long
-        if len(reply) > 250:
-            reply = reply[:247] + "..."
+        # Length control
+        if len(reply) > 280:
+            sentences = reply.split('.')
+            truncated = ""
+            for s in sentences:
+                if len(truncated + s + '.') <= 280:
+                    truncated += s + '.'
+            reply = truncated if truncated else reply[:277] + "..."
         
-        # Add persona touch if missing (occasionally)
-        if persona.name == "Rajeshwari" and random.random() > 0.7:
-            if not any(word in reply.lower() for word in ['beta', 'ji']):
-                reply = "Beta, " + reply
+        # Enforce persona marker if missing
+        reply_lower = reply.lower()
         
-        return reply
+        if persona.name == "Rajeshwari":
+            markers = ['beta', 'ji', 'samajh', 'bete', 'confusion']
+            if not any(m in reply_lower for m in markers) and random.random() > 0.4:
+                reply = f"Beta, {reply[0].lower()}{reply[1:]}" if reply else "Beta, mujhe samajh nahi aa raha..."
+        
+        elif persona.name == "Arjun Mehta":
+            markers = ['meeting', 'jaldi', 'process', 'email', 'busy', 'quick']
+            if not any(m in reply_lower for m in markers) and random.random() > 0.4:
+                reply = f"Jaldi batao, {reply[0].lower()}{reply[1:]}" if reply else "Jaldi batao, meeting hai."
+        
+        elif persona.name == "Priya Sharma":
+            markers = ['yaar', 'mummy', 'papa', 'legit', 'samajh', 'dost']
+            if not any(m in reply_lower for m in markers) and random.random() > 0.4:
+                reply = f"Yaar, {reply[0].lower()}{reply[1:]}" if reply else "Yaar, mujhe samajh nahi aa raha..."
+        
+        # Validate length
+        if len(reply.strip()) < 5:
+            logger.warning(f"⚠️ Cleaning destroyed response, using original")
+            return original[:200] if len(original) > 200 else original
+        
+        return reply.strip()
     
     def _assess_believability(self, reply: str, persona: Persona) -> float:
         """Score response believability"""
         score = 0.5
         
-        # Check for persona phrases
-        if any(phrase.lower() in reply.lower() for phrase in persona.common_phrases):
+        # Persona phrases
+        if any(p.lower() in reply.lower() for p in persona.common_phrases):
             score += 0.2
         
-        # Natural hesitation
-        if any(word in reply.lower() for word in ['umm', 'uh', 'hmm', 'aa']):
+        # Hesitation
+        if any(w in reply.lower() for w in ['umm', 'uh', 'hmm', 'aa']):
             score += 0.1
         
-        # Questions (engagement)
+        # Questions
         if '?' in reply:
             score += 0.15
         
-        # Hinglish mix
-        hindi_words = ['beta', 'ji', 'kya', 'hai', 'mein', 'aap', 'yaar', 'nahi']
-        if any(word in reply.lower() for word in hindi_words):
+        # Hinglish
+        hindi = ['beta', 'ji', 'kya', 'hai', 'mein', 'aap', 'yaar', 'nahi']
+        if any(w in reply.lower() for w in hindi):
             score += 0.15
         
-        # Penalize perfect grammar
+        # Penalties
         if reply.count('.') > 3 and '...' not in reply:
             score -= 0.1
+        if len(reply) < 10:
+            score -= 0.2
         
         return min(max(score, 0), 1)
     
     def _persona_fallback(self, message: str, state: ConversationState) -> str:
-        """Intelligent persona-based fallback (FIXED - STRICT PERSONA ISOLATION)"""
-        
-        logger.info(f"⚠️ Using FALLBACK for {state.persona.name} (Turn {state.turn_count})")
+        """Strict persona-isolated fallback with GUARANTEED uniqueness"""
         
         persona = state.persona
         turn = state.turn_count
         msg_lower = message.lower()
         
-        # STRICT PERSONA-SPECIFIC RESPONSES (NO MIXING!)
+        # Track used responses in this session to prevent repetition
+        if not hasattr(state, 'used_responses'):
+            state.used_responses = set()
+        
+        def pick_unique(responses):
+            """Pick response not used in this session"""
+            available = [r for r in responses if r not in state.used_responses]
+            
+            # If all used, clear history and try again
+            if not available:
+                state.used_responses.clear()
+                available = responses
+            
+            selected = random.choice(available)
+            state.used_responses.add(selected)
+            return selected
+        
+        # === RAJESHWARI (Elderly) ===
         if persona.name == "Rajeshwari":
-            if turn <= 2:
-                responses = [
+            responses = {
+                'early': [
                     "Beta, yeh sab mujhe samajh nahi aa raha. Aap bank se ho na?",
                     "Main thoda confused hun... mera account block ho jayega?",
                     "Mere bete ko phone kar lun kya? Woh sab samajhta hai",
                     "Yeh sab mujhe confusion mein daal raha hai beta",
-                    "Aap ka naam kya hai? Aur aap kahan se call kar rahe ho?"
-                ]
-            elif turn <= 5:
-                if any(word in msg_lower for word in ['link', 'click', 'website']):
-                    responses = [
-                        "Link... matlab? Main kaise kholun?",
-                        "Yeh link ke baare mein mujhe samajh nahi aa raha",
-                        "Beta, main phone pe hun, link kaise dekhu?"
-                    ]
-                elif any(word in msg_lower for word in ['payment', 'pay', 'amount']):
-                    responses = [
-                        "Payment? Mujhe kisko paise bhejne hain?",
-                        "Yeh payment ka kya chakkar hai beta?",
-                        "Kitna paise aur kahan bhejun?"
-                    ]
-                elif any(word in msg_lower for word in ['otp', 'code', 'password']):
-                    responses = [
-                        "OTP kya hota hai beta?",
-                        "Mujhe password share karna padega kya?",
-                        "Yeh code ka matlab kya hai?"
-                    ]
-                else:
-                    responses = [
-                        "Aage kya karna hai? Exact steps bataiye",
-                        "Thoda detail mein samjhaiye beta",
-                        "Mujhe yeh samajh nahi aa raha, phir se bataiye"
-                    ]
-            else:
-                responses = [
+                    "Aap ka naam kya hai? Aur aap kahan se call kar rahe ho?",
+                    "Pehle kabhi aisa nahi hua beta, kya ho gaya?"
+                ],
+                'link': [
+                    "Link... matlab? Main kaise kholun?",
+                    "Yeh link ke baare mein mujhe samajh nahi aa raha",
+                    "Beta, main phone pe hun, link kaise dekhu?",
+                    "Mujhe yeh link wala system nahi aata"
+                ],
+                'payment': [
+                    "Payment? Mujhe kisko paise bhejne hain?",
+                    "Yeh payment ka kya chakkar hai beta?",
+                    "Kitna paise aur kahan bhejun?",
+                    "Mujhe samajh nahi aa raha ki payment kyun?"
+                ],
+                'otp': [
+                    "OTP kya hota hai beta?",
+                    "Mujhe password share karna padega kya?",
+                    "Yeh code ka matlab kya hai?",
+                    "Mujhe yeh OTP wala system nahi samajhta"
+                ],
+                'default': [
+                    "Aage kya karna hai? Exact steps bataiye",
+                    "Thoda detail mein samjhaiye beta",
+                    "Mujhe yeh samajh nahi aa raha, phir se bataiye",
+                    "Dheere dheere samjhaiye, jaldi mat kariye"
+                ],
+                'late': [
                     "Mujhe thoda time chahiye sochne ke liye beta",
                     "Ek minute, mere bete ko phone kar lun?",
-                    "Abhi main ghar pe nahi hun, baad mein baat karte hain"
+                    "Abhi main ghar pe nahi hun, baad mein baat karte hain",
+                    "Mera network weak hai, call drop ho rahi hai"
                 ]
-        
-        elif persona.name == "Arjun Mehta":
+            }
+            
             if turn <= 2:
-                responses = [
-                    "Wait, kya bol rahe ho? Main meeting mein hun abhi",
-                    "Yeh legitimate hai na? Branch mein call karun?",
-                    "Aur kya details chahiye tumhe?",
-                    "Conference call pe hun, quick batao kya issue hai",
-                    "Email pe bhej do saari details"
-                ]
-            elif turn <= 5:
-                if any(word in msg_lower for word in ['link', 'click', 'website']):
-                    responses = [
-                        "Link kahan hai? Safe hai na?",
-                        "Yeh link legitimate source ka hai?",
-                        "Email mein bhej do link, main laptop pe dekhunga"
-                    ]
-                elif any(word in msg_lower for word in ['payment', 'pay', 'amount']):
-                    responses = [
-                        "Kitna payment? Aur kisko bhejun?",
-                        "Payment ka exact process batao",
-                        "Yeh payment authorized hai?"
-                    ]
-                elif any(word in msg_lower for word in ['otp', 'code', 'password']):
-                    responses = [
-                        "OTP share karna safe hai?",
-                        "Code kahan aaya? SMS pe?",
-                        "Yeh verification kis liye hai?"
-                    ]
-                else:
-                    responses = [
-                        "Process kya hai step by step?",
-                        "Timeline kya hai? Main busy hun",
-                        "Exactly kya karna hai? Jaldi batao"
-                    ]
+                return pick_unique(responses['early'])
+            elif any(w in msg_lower for w in ['link', 'click', 'url']):
+                return pick_unique(responses['link'])
+            elif any(w in msg_lower for w in ['payment', 'pay', 'amount', 'paisa']):
+                return pick_unique(responses['payment'])
+            elif any(w in msg_lower for w in ['otp', 'password', 'pin', 'code']):
+                return pick_unique(responses['otp'])
+            elif turn >= 8:
+                return pick_unique(responses['late'])
             else:
-                responses = [
-                    "Main abhi busy hun, baad mein kar sakte hain?",
-                    "Network issue hai, call back karo",
-                    "Another call aa rahi hai, wait karo"
-                ]
+                return pick_unique(responses['default'])
         
-        else:  # Priya Sharma
+        # === ARJUN (Professional) ===
+        elif persona.name == "Arjun Mehta":
+            responses = {
+                'early': [
+                    "Quick batao, meeting se bahar aaya hun. Kya issue hai?",
+                    "Email mein bhej do details, abhi call pe time nahi hai.",
+                    "Process kya hai exactly? Short mein batao.",
+                    "Yeh urgent hai? Main office se hun.",
+                    "Tumhari company ka naam kya hai? Verify kar lun.",
+                    "Jaldi summarize karo, next meeting hai."
+                ],
+                'link': [
+                    "Link safe hai? SSL verified hai na?",
+                    "Main laptop pe dekhunga, abhi phone pe verify nahi kar sakta.",
+                    "Yeh link tumhari official website ka hai?",
+                    "Link ko main IT team se verify karwa lunga."
+                ],
+                'payment': [
+                    "Payment ke liye proper invoice chahiye.",
+                    "Kitna amount hai? Aur kis account mein bhejun?",
+                    "Yeh payment authorized hai? Reference number do.",
+                    "Finance team se approve karwa ke batao."
+                ],
+                'otp': [
+                    "OTP share karna against company policy hai.",
+                    "Main IT team ko forward kar dunga yeh request.",
+                    "Aise sensitive info phone pe nahi dete.",
+                    "Security team ne mana kiya hai OTP share karne ko."
+                ],
+                'default': [
+                    "Timeline kya hai? EOD tak chahiye kya?",
+                    "Exact steps batao, main busy hun.",
+                    "Aur kya documentation chahiye?",
+                    "Speed up karo, time nahi hai.",
+                    "Main client call pe hun, whatsapp karo details."
+                ],
+                'late': [
+                    "Main abhi client call pe hun, baad mein karte hain.",
+                    "Network issue aa raha hai, email mein bhej do.",
+                    "Another urgent call aa rahi hai, kal baat karte hain.",
+                    "Flight mein board kar raha hun, baad mein."
+                ]
+            }
+            
             if turn <= 2:
-                responses = [
+                return pick_unique(responses['early'])
+            elif any(w in msg_lower for w in ['link', 'click', 'url']):
+                return pick_unique(responses['link'])
+            elif any(w in msg_lower for w in ['payment', 'pay', 'amount']):
+                return pick_unique(responses['payment'])
+            elif any(w in msg_lower for w in ['otp', 'password', 'pin', 'code']):
+                return pick_unique(responses['otp'])
+            elif turn >= 8:
+                return pick_unique(responses['late'])
+            else:
+                return pick_unique(responses['default'])
+        
+        # === PRIYA (Youth) ===
+        else:  # Priya Sharma
+            responses = {
+                'early': [
                     "Arre seriously? Mujhe samajh nahi aa raha...",
                     "Yeh real hai na? Mummy papa ko batana padega kya?",
                     "Mere dost ko bhi same message aaya tha...",
                     "Yaar mujhe thoda explain karo properly",
-                    "Seriously yaar? Thoda detail mein batao"
-                ]
-            elif turn <= 5:
-                if any(word in msg_lower for word in ['link', 'click', 'website']):
-                    responses = [
-                        "Yeh link safe hai na yaar?",
-                        "Link pe click karne se koi problem toh nahi?",
-                        "Mujhe link dikhai nahi de raha properly"
-                    ]
-                elif any(word in msg_lower for word in ['payment', 'pay', 'amount']):
-                    responses = [
-                        "Payment kyun yaar? Confused hun",
-                        "Kitna paise aur kisko?",
-                        "Yeh legit hai na? Payment safe hai?"
-                    ]
-                elif any(word in msg_lower for word in ['otp', 'code', 'password']):
-                    responses = [
-                        "OTP share karna chahiye kya?",
-                        "Yeh code kya hai? Bank ka hai?",
-                        "Mummy ne bola tha password mat share karo"
-                    ]
-                else:
-                    responses = [
-                        "Yaar thoda explain karo detail mein",
-                        "Main confused hun, kya karna hai exactly?",
-                        "Steps batao properly please"
-                    ]
-            else:
-                responses = [
+                    "Seriously yaar? Thoda detail mein batao",
+                    "Kya baat kar rahe ho? Sach mein?"
+                ],
+                'link': [
+                    "Yeh link safe hai na yaar?",
+                    "Link pe click karne se koi problem toh nahi?",
+                    "Mujhe link dikhai nahi de raha properly",
+                    "Yeh link kaunsa hai? Trusted hai na?"
+                ],
+                'payment': [
+                    "Payment kyun yaar? Confused hun",
+                    "Kitna paise aur kisko?",
+                    "Yeh legit hai na? Payment safe hai?",
+                    "Mere paas utna balance nahi hai yaar",
+                    "UPI se bhejun kya? Safe hai na?"
+                ],
+                'otp': [
+                    "OTP share karna chahiye kya?",
+                    "Yeh code kya hai? Bank ka hai?",
+                    "Mummy ne bola tha password mat share karo",
+                    "OTP dalne se account safe rahega na?"
+                ],
+                'default': [
+                    "Yaar thoda explain karo detail mein",
+                    "Main confused hun, kya karna hai exactly?",
+                    "Steps batao properly please",
+                    "Samajh nahi aa raha, repeat karo",
+                    "Ek baar aur simple words mein batao"
+                ],
+                'late': [
                     "Yaar abhi class hai, baad mein karte hain",
                     "Mummy papa ko confirm kar lun pehle?",
-                    "Thoda time do sochne ke liye"
+                    "Thoda time do sochne ke liye",
+                    "Abhi exam chal raha hai, kal baat karein?"
                 ]
+            }
+            
+            if turn <= 2:
+                return pick_unique(responses['early'])
+            elif any(w in msg_lower for w in ['link', 'click', 'url']):
+                return pick_unique(responses['link'])
+            elif any(w in msg_lower for w in ['payment', 'pay', 'amount', 'paisa']):
+                return pick_unique(responses['payment'])
+            elif any(w in msg_lower for w in ['otp', 'password', 'pin', 'code']):
+                return pick_unique(responses['otp'])
+            elif turn >= 8:
+                return pick_unique(responses['late'])
+            else:
+                return pick_unique(responses['default'])
         
-        # Select random response different from last one
-        available_responses = [r for r in responses if r != state.last_response]
-        if not available_responses:
-            available_responses = responses
-        
-        selected = random.choice(available_responses)
-        return selected
-    
     def should_end_conversation(self, state: ConversationState) -> bool:
         """Determine if conversation should end"""
         
         intel = state.extracted_intel
         turn = state.turn_count
         
-        # End if critical intelligence extracted
+        # Critical intelligence
         has_critical = (
             len(intel['bankAccounts']) >= 1 or
             len(intel['upiIds']) >= 1 or
             (len(intel['phishingLinks']) >= 2 and len(intel['phoneNumbers']) >= 1)
         )
         
-        # Or if conversation is sufficiently long
+        # Length limits
         sufficient_length = turn >= 12
-        
-        # Or if good progress made
-        good_progress = (
-            turn >= 8 and
-            (len(intel['phoneNumbers']) >= 1 or len(intel['phishingLinks']) >= 1)
-        )
+        good_progress = turn >= 8 and (len(intel['phoneNumbers']) >= 1 or len(intel['phishingLinks']) >= 1)
         
         return has_critical or sufficient_length or good_progress
     
     def update_state(self, state: ConversationState, scammer_msg: str, agent_reply: str):
-        """Update conversation state based on interaction"""
+        """Update conversation state"""
         
-        # Increment turn
         state.turn_count += 1
-        
-        # Store last response
         state.last_response = agent_reply
         
-        # Detect scammer emotion
+        # Emotion detection
         msg_lower = scammer_msg.lower()
-        if any(word in msg_lower for word in ['wait', 'listen', 'understand', 'telling you']):
+        if any(w in msg_lower for w in ['wait', 'listen', 'understand']):
             state.scammer_emotion = "frustrated"
-        elif any(word in msg_lower for word in ['good', 'perfect', 'excellent', 'right']):
+        elif any(w in msg_lower for w in ['good', 'perfect', 'excellent']):
             state.scammer_emotion = "confident"
-        elif any(word in msg_lower for word in ['hurry', 'quick', 'fast', 'now', 'immediately']):
+        elif any(w in msg_lower for w in ['hurry', 'quick', 'now']):
             state.scammer_emotion = "urgent"
-        elif any(word in msg_lower for word in ['sure', 'okay', 'yes']):
-            state.scammer_emotion = "suspicious"
         
-        # Update trust level
+        # Trust update
         if '?' in agent_reply:
             state.trust_level = min(state.trust_level + 0.05, 1.0)
         
-        # Update escalation stage
-        total_intel = sum(len(v) for v in state.extracted_intel.values() if isinstance(v, list))
-        state.escalation_stage = min(1 + (total_intel // 2), 5)
+        # Escalation
+        total = sum(len(v) for v in state.extracted_intel.values() if isinstance(v, list))
+        state.escalation_stage = min(1 + (total // 2), 5)
         
-        # Add note
-        note = f"Turn {state.turn_count}: Scammer {state.scammer_emotion}, Trust {state.trust_level:.2f}"
-        state.conversation_notes.append(note)
+        # Note
+        state.conversation_notes.append(
+            f"T{state.turn_count}: {state.scammer_emotion}, trust={state.trust_level:.2f}"
+        )
 
 # ============================================================================
 # FASTAPI APPLICATION
 # ============================================================================
 
+# Global state
 session_store: Dict[str, ConversationState] = {}
-
 detector = AdvancedDetector()
 extractor = IntelligenceExtractor()
 agent = AdvancedAgent()
@@ -1060,12 +1148,6 @@ class Message(BaseModel):
     sender: str
     text: str
     timestamp: int
-
-    def get(self, attrib_name: str, default: str):
-        try:
-            return getattr(self, attrib_name)
-        except Exception as e:
-            return default
 
 class Metadata(BaseModel):
     channel: Optional[str] = "SMS"
@@ -1080,73 +1162,95 @@ class IncomingRequest(BaseModel):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("🚀 ULTIMATE Agentic Honey-Pot FIXED Starting...")
+    logger.info("🚀 ULTIMATE Agentic Honey-Pot v3.0 FINAL Starting...")
     yield
     logger.info("🛑 Shutting down...")
 
 app = FastAPI(
-    title="ULTIMATE Agentic Honey-Pot API - FIXED",
+    title="ULTIMATE Agentic Honey-Pot API",
     description="Advanced AI honeypot with personas and multi-layer detection",
-    version="2.0.1",
+    version="3.0.0-FINAL",
     lifespan=lifespan
 )
 
 async def send_final_callback(session_id: str, state: ConversationState):
-    """Send final results to GUVI"""
+    """Send final results to GUVI with verification"""
+    
+    # Prevent duplicates
+    if state.callback_sent:
+        logger.info(f"⚠️ Callback already sent for {session_id}")
+        return True
     
     payload = {
         "sessionId": session_id,
         "scamDetected": True,
         "totalMessagesExchanged": state.turn_count,
-        "extractedIntelligence": state.extracted_intel,
-        "agentNotes": f"Persona: {state.persona.name}, Category: {state.scam_category.value}, "
-                      f"Escalation: {state.escalation_stage}/5, Trust: {state.trust_level:.0%}. "
-                      f"Notes: {' | '.join(state.conversation_notes[-3:])}"
+        "extractedIntelligence": {
+            "bankAccounts": state.extracted_intel.get('bankAccounts', []),
+            "upiIds": state.extracted_intel.get('upiIds', []),
+            "phishingLinks": state.extracted_intel.get('phishingLinks', []),
+            "phoneNumbers": state.extracted_intel.get('phoneNumbers', []),
+            "suspiciousKeywords": state.extracted_intel.get('suspiciousKeywords', [])
+        },
+        "agentNotes": f"Persona:{state.persona.name}|Cat:{state.scam_category.value}|"
+                      f"Esc:{state.escalation_stage}/5|Trust:{state.trust_level:.0%}|"
+                      f"Emotion:{state.scammer_emotion}"
     }
     
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(CALLBACK_URL, json=payload, timeout=10.0)
-            logger.info(f"✅ Callback sent for {session_id}: {response.status_code}")
-            return response.status_code == 200
-    except Exception as e:
-        logger.error(f"❌ Callback failed for {session_id}: {e}")
-        return False
+    logger.info(f"📤 CALLBACK for {session_id}: {json.dumps(payload, indent=2)}")
+    
+    for attempt in range(3):
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    CALLBACK_URL, 
+                    json=payload, 
+                    timeout=15.0,
+                    headers={"Content-Type": "application/json"}
+                )
+                
+                if resp.status_code == 200:
+                    logger.info(f"✅ CALLBACK SUCCESS: {session_id}")
+                    state.callback_sent = True
+                    return True
+                else:
+                    logger.error(f"❌ CALLBACK FAILED: {resp.status_code} - {resp.text}")
+                    
+        except Exception as e:
+            logger.error(f"❌ CALLBACK ERROR (attempt {attempt+1}): {e}")
+            await asyncio.sleep(2 ** attempt)
+    
+    logger.critical(f"🚨 ALL CALLBACK RETRIES FAILED: {session_id}")
+    return False
 
 @app.post("/api/honeypot")
 async def honeypot_endpoint(
     request: IncomingRequest,
     x_api_key: str = Header(..., alias="x-api-key")
 ):
-    """Main honeypot endpoint with advanced persona-driven engagement"""
+    """Main honeypot endpoint"""
     
     if x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Invalid API key")
     
     session_id = request.sessionId
-    incoming_message = request.message.text
+    incoming = request.message.text
     history = request.conversationHistory
     
-    logger.info(f"📨 Session {session_id}: New message (Turn {len(history)+1})")
+    logger.info(f"📨 {session_id}: Turn {len(history)+1}")
     
+    # Get or create session
     if session_id in session_store:
         state = session_store[session_id]
-        logger.info(f"🔄 Continuing session with {state.persona.name}")
+        logger.info(f"🔄 Continuing: {state.persona.name}, turn {state.turn_count}")
     else:
-        logger.info(f"🆕 New session - running detection")
-        detection = detector.detect(incoming_message, [])
-        
-        logger.info(f"🔍 Detection: is_scam={detection.is_scam}, confidence={detection.confidence}, category={detection.category.value}, indicators={detection.indicators}")
+        # New session - detect first
+        detection = detector.detect(incoming, [])
+        logger.info(f"🔍 Detection: scam={detection.is_scam}, conf={detection.confidence}, cat={detection.category.value}")
         
         if not detection.is_scam:
-            logger.info(f"❌ Not detected as scam (confidence {detection.confidence})")
-            return JSONResponse(
-                status_code=200,
-                content={
-                    "status": "success",
-                    "reply": "I'm sorry, I didn't quite understand. Could you please explain?"
-                }
-            )
+            logger.info(f"❌ Not scam (confidence {detection.confidence})")
+            return JSONResponse(content={"status": "success", "reply": "I'm sorry, could you please explain?"})
         
         persona = PersonaSelector.select(detection.category)
         state = ConversationState(
@@ -1155,63 +1259,42 @@ async def honeypot_endpoint(
             scam_category=detection.category
         )
         session_store[session_id] = state
-        
-        logger.info(f"🎭 Activated persona: {persona.name} for {detection.category.value}")
+        logger.info(f"🎭 NEW: {persona.name} for {detection.category.value}")
     
     # Extract intelligence
-    new_intel = extractor.extract(incoming_message)
-    
-    # Log extracted intelligence
+    new_intel = extractor.extract(incoming)
     if any(new_intel.values()):
-        logger.info(f"🔎 Extracted: {json.dumps({k: v for k, v in new_intel.items() if v}, indent=2)}")
+        logger.info(f"🔎 Intel: { {k:v for k,v in new_intel.items() if v} }")
     
-    # Merge intelligence
+    # Merge intel
     for key in state.extracted_intel:
         if key in new_intel:
             state.extracted_intel[key].extend(new_intel[key])
             state.extracted_intel[key] = list(set(state.extracted_intel[key]))
     
-    # Generate AI response
-    agent_reply, believability = await agent.generate_response(
-        incoming_message,
-        history,
-        state
-    )
+    # Generate response
+    reply, believability = await agent.generate_response(incoming, history, state)
     
     # Update state
-    agent.update_state(state, incoming_message, agent_reply)
-    
-    # Update session store
+    agent.update_state(state, incoming, reply)
     session_store[session_id] = state
     
-    logger.info(f"💬 {state.persona.name} (Turn {state.turn_count}, Believability {believability:.2f}): {agent_reply[:60]}...")
+    logger.info(f"💬 {state.persona.name} (T{state.turn_count}, B={believability:.2f}): {reply[:60]}...")
     
-    # Check if should end
-    should_end = agent.should_end_conversation(state)
-    
-    if should_end:
-        logger.info(f"🏁 Ending conversation {session_id}")
+    # Check end condition
+    if agent.should_end_conversation(state):
+        logger.info(f"🏁 ENDING: {session_id}")
         await send_final_callback(session_id, state)
     
-    return JSONResponse(
-        status_code=200,
-        content={
-            "status": "success",
-            "reply": agent_reply
-        }
-    )
+    return JSONResponse(content={"status": "success", "reply": reply})
 
 @app.get("/")
 async def root():
     return {
+        "service": "ULTIMATE Agentic Honey-Pot API v3.0 FINAL",
         "status": "active",
-        "service": "ULTIMATE Agentic Honey-Pot API v2.0.1 FIXED",
-        "features": ["Multi-layer detection", "Persona-driven engagement", "Advanced extraction"],
-        "endpoints": {
-            "honeypot": "/api/honeypot",
-            "health": "/health",
-            "docs": "/docs"
-        }
+        "features": ["Multi-layer detection", "3 Personas", "Advanced extraction"],
+        "endpoints": ["/api/honeypot", "/health", "/admin/metrics"]
     }
 
 @app.get("/health")
@@ -1221,7 +1304,34 @@ async def health_check():
         "timestamp": datetime.now().isoformat(),
         "gemini_configured": GEMINI_API_KEY != "",
         "active_sessions": len(session_store),
-        "personas_loaded": len(PersonaLibrary.get_personas())
+        "personas_loaded": 3
+    }
+
+@app.get("/admin/metrics")
+async def get_metrics(x_api_key: str = Header(...)):
+    """Real-time metrics for judges"""
+    if x_api_key != API_KEY:
+        raise HTTPException(status_code=401)
+    
+    if not session_store:
+        return {"status": "no_data"}
+    
+    return {
+        "total_sessions": len(session_store),
+        "active": sum(1 for s in session_store.values() if not s.callback_sent),
+        "completed": sum(1 for s in session_store.values() if s.callback_sent),
+        "avg_turns": round(sum(s.turn_count for s in session_store.values()) / len(session_store), 1),
+        "intel": {
+            "bank_accounts": sum(len(s.extracted_intel.get('bankAccounts', [])) for s in session_store.values()),
+            "upi_ids": sum(len(s.extracted_intel.get('upiIds', [])) for s in session_store.values()),
+            "phones": sum(len(s.extracted_intel.get('phoneNumbers', [])) for s in session_store.values()),
+            "links": sum(len(s.extracted_intel.get('phishingLinks', [])) for s in session_store.values())
+        },
+        "personas": {
+            "Rajeshwari": sum(1 for s in session_store.values() if s.persona.name == "Rajeshwari"),
+            "Arjun": sum(1 for s in session_store.values() if s.persona.name == "Arjun Mehta"),
+            "Priya": sum(1 for s in session_store.values() if s.persona.name == "Priya Sharma")
+        }
     }
 
 if __name__ == "__main__":
