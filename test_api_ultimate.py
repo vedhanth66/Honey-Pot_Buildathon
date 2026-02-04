@@ -19,6 +19,7 @@ class Colors:
     ENDC = '\033[0m'
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
+    MAGENTA = '\033[35m'
 
 SCENARIOS = [
     {
@@ -62,7 +63,7 @@ SCENARIOS = [
 
 def print_banner():
     print(f"{Colors.HEADER}{'='*80}")
-    print(f"🕵️  ULTIMATE AGENTIC HONEY-POT TESTER v2.0")
+    print(f"🕵️  ULTIMATE AGENTIC HONEY-POT TESTER v2.1 (ENHANCED)")
     print(f"Target: {API_URL}")
     print(f"Time: {datetime.now().strftime('%H:%M:%S')}")
     print(f"{'='*80}{Colors.ENDC}\n")
@@ -89,13 +90,11 @@ def check_health():
         return False
 
 def analyze_persona_response(text: str, expected: str):
-    """
-    Rudimentary analysis to see if the response matches the expected persona traits.
-    """
+    """Analyze if response matches expected persona"""
     text_lower = text.lower()
     detected = "Unknown"
     
-    # Simple keyword heuristics based on app_ultimate.py definitions
+    # Keyword heuristics
     if any(w in text_lower for w in ['beta', 'ji', 'samajh', 'confused', 'bete']):
         detected = "Rajeshwari (Elderly)"
     elif any(w in text_lower for w in ['meeting', 'email', 'busy', 'process', 'legitimate']):
@@ -106,6 +105,34 @@ def analyze_persona_response(text: str, expected: str):
     match_color = Colors.GREEN if expected.split()[0] in detected else Colors.WARNING
     return detected, match_color
 
+def extract_intelligence_from_message(msg: str) -> Dict:
+    """Extract intelligence from scammer message"""
+    import re
+    intel = {
+        'urls': [],
+        'phones': [],
+        'amounts': [],
+        'upi_ids': []
+    }
+    
+    # Extract URLs
+    urls = re.findall(r'https?://[^\s]+', msg)
+    intel['urls'] = urls
+    
+    # Extract phone numbers
+    phones = re.findall(r'\+91[\s-]?\d{10}|\b[6-9]\d{9}\b', msg)
+    intel['phones'] = phones
+    
+    # Extract amounts
+    amounts = re.findall(r'Rs\.?\s*[\d,]+|₹\s*[\d,]+|\d+\s*(?:lakh|crore)', msg, re.IGNORECASE)
+    intel['amounts'] = amounts
+    
+    # Extract UPI IDs
+    upi = re.findall(r'[\w\.-]+@(?:paytm|oksbi|okicici|okaxis|okhdfcbank|ybl|ibl)', msg, re.IGNORECASE)
+    intel['upi_ids'] = upi
+    
+    return intel
+
 def run_scenario(scenario: Dict):
     session_id = f"TEST_{scenario['id']}_{int(time.time())}"
     print(f"\n{Colors.HEADER}▶ RUNNING SCENARIO: {scenario['description']}{Colors.ENDC}")
@@ -113,9 +140,32 @@ def run_scenario(scenario: Dict):
     print(f"   └─ Expected Persona: {Colors.BOLD}{scenario['expected_persona']}{Colors.ENDC}\n")
     
     history = []
+    total_intel = {
+        'urls': [],
+        'phones': [],
+        'amounts': [],
+        'upi_ids': []
+    }
     
     for i, msg_text in enumerate(scenario['messages']):
         print(f"{Colors.WARNING}🔴 [Scammer]:{Colors.ENDC} {msg_text}")
+        
+        # Extract intelligence from scammer message
+        msg_intel = extract_intelligence_from_message(msg_text)
+        for key in total_intel:
+            total_intel[key].extend(msg_intel[key])
+        
+        # Show extracted intelligence
+        if any(msg_intel.values()):
+            print(f"   {Colors.MAGENTA}📊 Intelligence in message:{Colors.ENDC}")
+            if msg_intel['urls']:
+                print(f"      └─ URLs: {', '.join(msg_intel['urls'])}")
+            if msg_intel['phones']:
+                print(f"      └─ Phones: {', '.join(msg_intel['phones'])}")
+            if msg_intel['amounts']:
+                print(f"      └─ Amounts: {', '.join(msg_intel['amounts'])}")
+            if msg_intel['upi_ids']:
+                print(f"      └─ UPI IDs: {', '.join(msg_intel['upi_ids'])}")
         
         # Construct Payload
         payload = {
@@ -134,13 +184,12 @@ def run_scenario(scenario: Dict):
         }
         
         try:
-            # Send Request
             start_ts = time.time()
             response = requests.post(
                 API_URL, 
                 headers={"x-api-key": API_KEY, "Content-Type": "application/json"},
                 json=payload,
-                timeout=15  # Slightly longer timeout for GenAI
+                timeout=15
             )
             latency = (time.time() - start_ts) * 1000
             
@@ -154,7 +203,7 @@ def run_scenario(scenario: Dict):
                 print(f"{Colors.GREEN}🟢 [Agent]  :{Colors.ENDC} {reply}")
                 print(f"   {Colors.BLUE}└─ Latency: {latency:.0f}ms | Detected Tone: {p_color}{detected_persona}{Colors.ENDC}")
                 
-                # Update History (Simulating the client app)
+                # Update History
                 history.append({"sender": "scammer", "text": msg_text, "timestamp": int(time.time()*1000)})
                 history.append({"sender": "user", "text": reply, "timestamp": int(time.time()*1000)})
                 
@@ -166,9 +215,24 @@ def run_scenario(scenario: Dict):
             print(f"{Colors.FAIL}❌ Connection Error: {str(e)}{Colors.ENDC}")
             break
             
-        # Simulate thinking time/typing delay
         time.sleep(1.5)
-        print("-" * 40)
+        print("-" * 80)
+    
+    # Show total intelligence gathered
+    print(f"\n{Colors.MAGENTA}📈 TOTAL INTELLIGENCE GATHERED:{Colors.ENDC}")
+    total_items = sum(len(v) for v in total_intel.values())
+    if total_items > 0:
+        if total_intel['urls']:
+            print(f"   ├─ URLs: {len(total_intel['urls'])} ({', '.join(set(total_intel['urls']))})")
+        if total_intel['phones']:
+            print(f"   ├─ Phone Numbers: {len(total_intel['phones'])} ({', '.join(set(total_intel['phones']))})")
+        if total_intel['amounts']:
+            print(f"   ├─ Amounts: {len(total_intel['amounts'])} ({', '.join(set(total_intel['amounts']))})")
+        if total_intel['upi_ids']:
+            print(f"   └─ UPI IDs: {len(total_intel['upi_ids'])} ({', '.join(set(total_intel['upi_ids']))})")
+    else:
+        print(f"   └─ {Colors.WARNING}No intelligence extracted{Colors.ENDC}")
+    print()
 
 
 if __name__ == "__main__":
@@ -187,4 +251,4 @@ if __name__ == "__main__":
         print(f"{'='*80}{Colors.ENDC}")
     else:
         print(f"\n{Colors.FAIL}🛑 Aborting tests due to health check failure.{Colors.ENDC}")
-        print("Please ensure 'app_ultimate.py' is running: uvicorn app_ultimate:app --reload")
+        print("Please ensure 'app_ultimate_fixed.py' is running: uvicorn app_ultimate_fixed:app --reload")
