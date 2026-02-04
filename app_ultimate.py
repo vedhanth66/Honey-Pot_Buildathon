@@ -627,7 +627,7 @@ class AdvancedAgent:
         self.model = None
         if GEMINI_API_KEY:
             try:
-                self.model = genai.GenerativeModel('gemini-3-flash')
+                self.model = genai.GenerativeModel('gemini-2.5-flash')
                 logger.info("✅ Gemini model initialized")
             except Exception as e:
                 logger.error(f"❌ Failed to initialize Gemini: {e}")
