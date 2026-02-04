@@ -222,18 +222,17 @@ class DetectionResult:
 class AdvancedDetector:
     """Multi-layered detection with pattern + semantic + behavioral analysis"""
     
-    # Critical patterns - Immediate high confidence (RELAXED for better detection)
     CRITICAL_PATTERNS = {
-        'upi_request': r'(?i)\b(upi|phone\s*pe|google\s*pay|paytm|gpay)',
-        'account_request': r'(?i)\b(account|acc)\s*(?:no\.?|number)?',
-        'otp_request': r'(?i)\b(otp|one[\s-]?time|verification\s*code|pin|cvv|password)',
-        'bank_mention': r'(?i)\b(sbi|hdfc|icici|axis|pnb|bob|canara|union|kotak|bank)',
-        'govt_impersonation': r'(?i)\b(income\s*tax|itr|gst|aadhaar|pan|rbi|reserve\s*bank|government)',
-        'urgent_threat': r'(?i)\b(block|suspend|expire|deactivate|terminate|close|freeze|locked)',
-        'prize_claim': r'(?i)\b(won|winner|win|congratulations?|congrats|selected|lucky|prize|reward|claim|lakhs?|crores?|rs\.?\s*\d+|₹\s*\d+|kbc|lottery|draw)',
-        'payment_link': r'(?i)\b(click|tap|visit|open|link|http)',
-        'legal_threat': r'(?i)\b(legal|police|fir|arrest|court|summons|warrant|case|action)',
-        'refund_bait': r'(?i)\b(refund|cashback|reversal|approved|initiated)',
+        'upi_request': r'\b(upi|phone\s*pe|google\s*pay|paytm|gpay|bhim)\b',
+        'account_request': r'\b(account|acc)\b\s*\w*\s*\b(number|no|details|balance|blocked|frozen)\b',
+        'otp_request': r'\b(otp|pin|cvv|password|code)\b',
+        'bank_impersonation': r'\b(sbi|hdfc|icici|axis|pnb|bob|canara|union|kotak)\b',
+        'govt_impersonation': r'\b(income\s*tax|itr|gst|aadhaar|pan\s*card|rbi|police|court)\b',
+        'urgent_threat': r'\b(block|suspend|expire|deactivate|terminate|close|freeze|lock)\w*\b',
+        'prize_claim': r'\b(won|winner|congratulations|lucky|prize|reward|claim|bonus)\b',
+        'payment_link': r'(http|https|www\.|click\s*here|visit)',
+        'legal_threat': r'\b(legal|police|fir|arrest|jail|warrant)\b',
+        'refund_bait': r'\b(refund|cashback|reversal|credited)\b',
     }
     
     # Semantic indicators for context
@@ -608,7 +607,7 @@ class AdvancedAgent:
     
     def __init__(self):
         if GEMINI_API_KEY:
-            self.model = genai.GenerativeModel('gemini-2.0-flash-exp')
+            self.model = genai.GenerativeModel('gemini-1.5-flash')
         else:
             self.model = None
             logger.warning("⚠️ Gemini API key not set")
@@ -710,14 +709,23 @@ RESPOND AS {persona.name} WOULD. Keep it short, natural, and believable."""
         try:
             prompt = self.build_advanced_prompt(message, history, state)
             
+            safety_settings = [
+                {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+            ]
+
             response = self.model.generate_content(
                 prompt,
                 generation_config=genai.GenerationConfig(
-                    temperature=0.85,  # Higher for more natural variation
+                    temperature=0.85,
                     top_p=0.95,
                     max_output_tokens=200,
-                )
+                ),
+                safety_settings=safety_settings  # <--- CRITICAL ADDITION
             )
+            # --- END CHANGE ---
             
             reply = response.text.strip()
             
