@@ -5,8 +5,10 @@ import random
 from typing import List, Dict, Any
 from datetime import datetime
 
-API_URL = "https://honey-pot-buildathon.onrender.com"  
-HEALTH_URL = "https://honey-pot-buildathon.onrender.com/health"
+# API_URL = "https://honeypotbuildathon.vercel.app/"  
+# HEALTH_URL = "https://honeypotbuildathon.vercel.app/health"
+API_URL = "http://localhost:8080/"  
+HEALTH_URL = "http://localhost:8080/health"
 API_KEY = "Honey-Pot_Buildathon-123456"
 
 class Colors:
@@ -124,8 +126,26 @@ def extract_intelligence_from_message(msg: str) -> Dict:
     intel['phones'] = phones
     
     # Extract amounts
-    amounts = re.findall(r'Rs\.?\s*[\d,]+|₹\s*[\d,]+|\d+\s*(?:lakh|crore)', msg, re.IGNORECASE)
-    intel['amounts'] = amounts
+    amounts = re.finditer(r'(?:Rs\.?|₹)\s*(\d+(?:,\d{3})*)(?:\.(\d+))?\s*(lakh|lakhs|crore|crores)?', msg, re.IGNORECASE)
+    int_amts = []
+
+    for m in amounts:
+        num = m.group(1).replace(',', '')
+        dec = m.group(2) or '0'
+        unit = m.group(3)
+
+        amt = float(num + '.' + dec)
+
+        if unit:
+            u = unit.lower()
+            if 'lakh' in u:
+                amt *= 1_00_000
+            elif 'crore' in u:
+                amt *= 1_00_00_000
+
+        int_amts.append(amt)
+
+    intel['amounts'] = [f"Rs. {amt}" for amt in int_amts]
     
     # Extract UPI IDs
     upi = re.findall(r'[\w\.-]+@(?:paytm|oksbi|okicici|okaxis|okhdfcbank|ybl|ibl)', msg, re.IGNORECASE)

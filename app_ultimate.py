@@ -20,6 +20,9 @@ from dataclasses import dataclass, field
 import random
 import time
 import asyncio
+import dotenv
+
+dotenv.load_dotenv()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -1237,5 +1240,5 @@ async def explain_session(session_id: str, x_api_key: str = Header(...)):
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.getenv("PORT", 8000))
+    port = int(os.getenv("PORT", 8080))
     uvicorn.run(app, host="0.0.0.0", port=port)
