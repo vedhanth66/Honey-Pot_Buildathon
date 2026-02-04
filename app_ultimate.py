@@ -21,6 +21,11 @@ from dataclasses import dataclass, asdict
 import random
 import time
 
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -28,7 +33,8 @@ logger = logging.getLogger(__name__)
 # Configuration
 API_KEY = os.getenv("API_KEY", "your-secret-api-key-12345")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-CALLBACK_URL = "https://hackathon.guvi.in/api/updateHoneyPotFinalResult"
+# CALLBACK_URL = "https://hackathon.guvi.in/api/updateHoneyPotFinalResult"
+CALLBACK_URL = "/updateHoneyPotFinalResult"
 
 # Configure Gemini
 if GEMINI_API_KEY:
@@ -417,7 +423,7 @@ class AdvancedDetector:
         
         return min(score, 1.0)
     
-    def detect(self, message: str, history: List = None) -> DetectionResult:
+    def detect(self, message: str, history: List|None = None) -> DetectionResult:
         """Main detection pipeline - Multi-layer ensemble"""
         
         # Layer 1: Pattern analysis
@@ -584,9 +590,9 @@ class ConversationState:
     turn_count: int = 0
     escalation_stage: int = 1  # 1-5
     trust_level: float = 0.3
-    extracted_intel: Dict = None
+    extracted_intel: Dict|None = None
     scammer_emotion: str = "confident"
-    conversation_notes: List[str] = None
+    conversation_notes: List[str]|None = None
     
     def __post_init__(self):
         if self.extracted_intel is None:
@@ -845,9 +851,9 @@ RESPOND AS {persona.name} WOULD. Keep it short, natural, and believable."""
         
         # End if critical intelligence extracted
         has_critical = (
-            len(intel['bankAccounts']) >= 1 or
-            len(intel['upiIds']) >= 1 or
-            (len(intel['phishingLinks']) >= 2 and len(intel['phoneNumbers']) >= 1)
+            len(intel['bankAccounts']) >= 1 or                                              # pyright: ignore[reportOptionalSubscript]
+            len(intel['upiIds']) >= 1 or                                                    # pyright: ignore[reportOptionalSubscript]
+            (len(intel['phishingLinks']) >= 2 and len(intel['phoneNumbers']) >= 1)          # pyright: ignore[reportOptionalSubscript]
         )
         
         # Or if conversation is sufficiently long
@@ -856,7 +862,7 @@ RESPOND AS {persona.name} WOULD. Keep it short, natural, and believable."""
         # Or if good progress made
         good_progress = (
             turn >= 8 and
-            (len(intel['phoneNumbers']) >= 1 or len(intel['phishingLinks']) >= 1)
+            (len(intel['phoneNumbers']) >= 1 or len(intel['phishingLinks']) >= 1)           # pyright: ignore[reportOptionalSubscript]
         )
         
         return has_critical or sufficient_length or good_progress
@@ -883,12 +889,12 @@ RESPOND AS {persona.name} WOULD. Keep it short, natural, and believable."""
             state.trust_level = min(state.trust_level + 0.05, 1.0)
         
         # Update escalation stage based on intelligence
-        total_intel = sum(len(v) for v in state.extracted_intel.values() if isinstance(v, list))
+        total_intel = sum(len(v) for v in state.extracted_intel.values() if isinstance(v, list))                    # pyright: ignore[reportOptionalMemberAccess]
         state.escalation_stage = min(1 + (total_intel // 2), 5)
         
         # Add note
         note = f"Turn {state.turn_count}: Scammer {state.scammer_emotion}, Trust {state.trust_level:.2f}"
-        state.conversation_notes.append(note)
+        state.conversation_notes.append(note)                                                                       # pyright: ignore[reportOptionalMemberAccess]
 
 # ============================================================================
 # FASTAPI APPLICATION
@@ -942,7 +948,7 @@ async def send_final_callback(session_id: str, state: ConversationState):
         "extractedIntelligence": state.extracted_intel,
         "agentNotes": f"Persona: {state.persona.name}, Category: {state.scam_category.value}, "
                       f"Escalation: {state.escalation_stage}/5, Trust: {state.trust_level:.0%}. "
-                      f"Notes: {' | '.join(state.conversation_notes[-3:])}"
+                      f"Notes: {' | '.join(state.conversation_notes[-3:])}" # pyright: ignore[reportOptionalSubscript]
     }
     
     try:
@@ -1009,10 +1015,10 @@ async def honeypot_endpoint(
     new_intel = extractor.extract(incoming_message)
     
     # Merge intelligence
-    for key in state.extracted_intel:
+    for key in state.extracted_intel:                                               # pyright: ignore[reportOptionalIterable]
         if key in new_intel:
-            state.extracted_intel[key].extend(new_intel[key])
-            state.extracted_intel[key] = list(set(state.extracted_intel[key]))
+            state.extracted_intel[key].extend(new_intel[key])                       # pyright: ignore[reportOptionalSubscript, reportOptionalIterable]
+            state.extracted_intel[key] = list(set(state.extracted_intel[key]))      # pyright: ignore[reportOptionalSubscript, reportOptionalIterable]
     
     # Generate AI response
     agent_reply, believability = await agent.generate_response(

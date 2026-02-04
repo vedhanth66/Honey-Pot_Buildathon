@@ -23,6 +23,8 @@ venv/
 ENV/
 env/
 
+.venv
+
 .env
 .env.local
 
