@@ -186,7 +186,7 @@ def run_scenario(scenario: Dict):
         try:
             start_ts = time.time()
             response = requests.post(
-                API_URL, 
+                f"{API_URL}/api/honeypot", 
                 headers={"x-api-key": API_KEY, "Content-Type": "application/json"},
                 json=payload,
                 timeout=15
