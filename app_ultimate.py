@@ -1,7 +1,6 @@
 """
-ULTIMATE Agentic Honey-Pot System - Hybrid Best-of-Both
-Combines: Advanced personas + Multi-layer detection + FREE Gemini AI + Production-grade
-DESIGNED TO WIN 1ST PLACE
+ULTIMATE Agentic Honey-Pot System - FIXED VERSION
+All critical issues resolved
 """
 
 from fastapi import FastAPI, HTTPException, Header, Request
@@ -21,20 +20,14 @@ from dataclasses import dataclass, asdict
 import random
 import time
 
-from dotenv import load_dotenv
-
-# Load environment variables from .env file
-load_dotenv()
-
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Configuration
-API_KEY = os.getenv("API_KEY", "your-secret-api-key-12345")
+API_KEY = os.getenv("API_KEY", "Honey-Pot_Buildathon-123456")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-# CALLBACK_URL = "https://hackathon.guvi.in/api/updateHoneyPotFinalResult"
-CALLBACK_URL = "/updateHoneyPotFinalResult"
+CALLBACK_URL = "https://hackathon.guvi.in/api/updateHoneyPotFinalResult"
 
 # Configure Gemini
 if GEMINI_API_KEY:
@@ -60,7 +53,7 @@ class PersonaType(Enum):
     YOUTH = "naive_youth"
 
 # ============================================================================
-# ADVANCED PERSONA SYSTEM (From Previous Plan)
+# ADVANCED PERSONA SYSTEM
 # ============================================================================
 
 @dataclass
@@ -108,7 +101,9 @@ class PersonaLibrary:
                     "Mere bete ko phone karna padega kya?",
                     "Pehle kabhi aisa nahi hua",
                     "Mujhe aap ka naam bataiye",
-                    "Bank se call hai toh theek hai"
+                    "Bank se call hai toh theek hai",
+                    "Yeh sab mujhe confusion mein daal raha hai",
+                    "Ek minute, main apne bete se pooch lun?"
                 ],
                 vulnerabilities=[
                     "fear of losing life savings",
@@ -140,7 +135,9 @@ class PersonaLibrary:
                     "Email bhej do details",
                     "Main branch mein complaint kar dunga",
                     "Yeh legitimate hai na?",
-                    "Process kya hai exactly?"
+                    "Process kya hai exactly?",
+                    "Conference call pe hun, quick batao",
+                    "Aur kya details chahiye tumhe?"
                 ],
                 vulnerabilities=[
                     "fear of work disruption",
@@ -172,7 +169,9 @@ class PersonaLibrary:
                     "Mummy papa ko batana padega?",
                     "Yeh legit hai na?",
                     "Mujhe koi problem toh nahi hoga?",
-                    "Mere dost ko bhi same message aaya tha"
+                    "Mere dost ko bhi same message aaya tha",
+                    "Seriously yaar?",
+                    "Thoda explain karo please"
                 ],
                 vulnerabilities=[
                     "fear of missing opportunities",
@@ -192,7 +191,7 @@ class PersonaSelector:
     CATEGORY_MAPPING = {
         ScamCategory.BANKING: PersonaType.ELDERLY,
         ScamCategory.UPI: PersonaType.YOUTH,
-        ScamCategory.KYC: PersonaType.PROFESSIONAL,
+        ScamCategory.KYC: PersonaType.ELDERLY,  # Changed from PROFESSIONAL
         ScamCategory.LOTTERY: PersonaType.YOUTH,
         ScamCategory.TECH_SUPPORT: PersonaType.ELDERLY,
         ScamCategory.PHISHING: PersonaType.PROFESSIONAL,
@@ -211,7 +210,7 @@ class PersonaSelector:
         return personas[persona_type]
 
 # ============================================================================
-# MULTI-LAYER DETECTION ENGINE (Enhanced from Previous Plan)
+# MULTI-LAYER DETECTION ENGINE (FIXED)
 # ============================================================================
 
 @dataclass
@@ -238,7 +237,7 @@ class AdvancedDetector:
         'prize_claim': r'\b(won|winner|congratulations|lucky|prize|reward|claim|bonus)\b',
         'payment_link': r'(http|https|www\.|click\s*here|visit)',
         'legal_threat': r'\b(legal|police|fir|arrest|jail|warrant)\b',
-        'refund_bait': r'\b(refund|cashback|reversal|credited)\b',
+        'refund_bait': r'\b(refund|cashback|reversal|credited|approved|initiated|failed|pending)\b',
     }
     
     # Semantic indicators for context
@@ -247,54 +246,54 @@ class AdvancedDetector:
         "refund pending", "transaction failed", "suspicious activity detected",
         "unauthorized access", "security alert", "unusual login",
         "confirm details", "provide information", "share code",
-        "immediate action required", "last warning", "final notice"
+        "immediate action required", "last warning", "final notice",
+        "server error", "processing error", "verification needed"
     ]
-    
-    # Impersonation targets
-    IMPERSONATION_TARGETS = {
-        'banks': ["sbi", "hdfc", "icici", "axis", "pnb", "bob", "canara", "union", "kotak"],
-        'govt': ["income tax", "itr", "gst", "aadhaar", "rbi", "income tax department"],
-        'companies': ["amazon", "flipkart", "paytm", "phonepe", "google pay", "swiggy", "zomato"],
-        'services': ["customer care", "technical support", "help desk"]
-    }
     
     def __init__(self):
         self.detection_history = {}
     
     def pattern_analysis(self, message: str) -> Tuple[float, List[str], Optional[str]]:
-        """Rule-based pattern matching - Layer 1"""
+        """Rule-based pattern matching - Layer 1 (FIXED)"""
         message_lower = message.lower()
         indicators = []
         score = 0.0
         impersonation = None
         
-        # SUPER HIGH PRIORITY: Lottery/Prize scams (check first!)
+        # SUPER HIGH PRIORITY: Lottery/Prize scams
         lottery_keywords = ['congratulations', 'congrats', 'won', 'winner', 'win', 'prize', 'lottery', 'lucky draw', 'lucky', 'lakh', 'lakhs', 'crore', 'crores', 'selected', 'claim', 'kbc', 'draw']
         lottery_count = sum(1 for word in lottery_keywords if word in message_lower)
-        if lottery_count >= 2:  # If 2+ lottery keywords found
+        if lottery_count >= 2:
             indicators.append(f"LOTTERY_SCAM: {lottery_count} strong indicators")
-            score += min(lottery_count * 0.35, 0.90)  # Each keyword adds 0.35, max 0.90
+            score += min(lottery_count * 0.35, 0.90)
         
-        # Check critical patterns (now count multiple matches)
+        # HIGH PRIORITY: Refund scams (BOOSTED)
+        refund_keywords = ['refund', 'cashback', 'reversal', 'credit back', 'approved', 'initiated', 'failed', 'transaction', 'processing']
+        refund_count = sum(1 for word in refund_keywords if word in message_lower)
+        if refund_count >= 2:
+            indicators.append(f"REFUND_SCAM: {refund_count} indicators")
+            score += min(refund_count * 0.35, 0.85)
+        
+        # Check critical patterns
         for pattern_name, pattern in self.CRITICAL_PATTERNS.items():
             matches = re.findall(pattern, message_lower)
             if matches:
-                match_count = len(set(matches))  # Count unique matches
+                match_count = len(set(matches))
                 indicators.append(f"CRITICAL: {pattern_name} ({match_count} matches)")
                 
-                # Increased weights for better detection
+                # Increased weights
                 if pattern_name in ['otp_request', 'account_request', 'upi_request']:
-                    score += min(match_count * 0.40, 0.50)  # Critical data requests
+                    score += min(match_count * 0.40, 0.50)
                 elif pattern_name == 'prize_claim':
-                    score += min(match_count * 0.35, 0.70)  # Prize claims - count each match
+                    score += min(match_count * 0.35, 0.70)
                 elif pattern_name == 'refund_bait':
-                    score += min(match_count * 0.35, 0.50)  # Refund scams
-                elif pattern_name in ['bank_mention', 'urgent_threat']:
-                    score += min(match_count * 0.30, 0.45)  # Bank/urgency mentions
+                    score += min(match_count * 0.40, 0.60)  # BOOSTED
+                elif pattern_name in ['bank_impersonation', 'urgent_threat']:
+                    score += min(match_count * 0.30, 0.45)
                 else:
-                    score += min(match_count * 0.25, 0.40)  # Other patterns
+                    score += min(match_count * 0.25, 0.40)
         
-        # Check for impersonation (simplified)
+        # Check for impersonation
         impersonation_keywords = [
             'sbi', 'hdfc', 'icici', 'axis', 'pnb', 'bob', 'canara', 'kotak',
             'bank', 'income tax', 'itr', 'government', 'rbi',
@@ -307,16 +306,17 @@ class AdvancedDetector:
                 score += 0.20
                 break
         
-        # Urgency markers (expanded list)
+        # Urgency markers (expanded)
         urgency_markers = [
             'immediate', 'urgent', 'now', 'today', 'within', 'hours',
             'limited time', 'expires', 'last chance', 'final', 'deadline',
-            'hurry', 'quick', 'fast', 'pending', 'blocked', 'verify', 'update'
+            'hurry', 'quick', 'fast', 'pending', 'blocked', 'verify', 'update',
+            'must', 'need to', 'required'
         ]
         urgency_count = sum(1 for marker in urgency_markers if marker in message_lower)
         if urgency_count > 0:
             indicators.append(f"URGENCY: {urgency_count} markers")
-            score += min(urgency_count * 0.15, 0.45)  # Increased sensitivity
+            score += min(urgency_count * 0.15, 0.45)
         
         # Suspicious URLs
         url_pattern = r'https?://(?!(?:www\.)?(?:sbi|hdfc|icici|axis|incometax)\.)[^\s]+'
@@ -326,7 +326,7 @@ class AdvancedDetector:
             score += 0.30
         
         # Pressure tactics
-        pressure_words = ['must', 'need to', 'have to', 'required', 'mandatory']
+        pressure_words = ['must', 'need to', 'have to', 'required', 'mandatory', 'failure to', 'cancellation']
         pressure_count = sum(1 for word in pressure_words if word in message_lower)
         if pressure_count >= 2:
             indicators.append(f"PRESSURE: {pressure_count} tactics")
@@ -335,10 +335,10 @@ class AdvancedDetector:
         return min(score, 1.0), indicators, impersonation
     
     def semantic_analysis(self, message: str) -> Tuple[float, ScamCategory]:
-        """Semantic pattern detection - Layer 2"""
+        """Semantic pattern detection - Layer 2 (FIXED)"""
         message_lower = message.lower()
         
-        # Category detection (prioritized by specificity)
+        # Category detection
         category_scores = {
             ScamCategory.BANKING: 0.0,
             ScamCategory.UPI: 0.0,
@@ -349,13 +349,19 @@ class AdvancedDetector:
             ScamCategory.REFUND: 0.0
         }
         
-        # Lottery fraud indicators (HIGHEST PRIORITY - check first)
+        # Lottery fraud indicators (HIGHEST PRIORITY)
         lottery_words = ['won', 'winner', 'win', 'congratulations', 'congrats', 'lottery', 'lucky draw', 'lucky', 'prize', 'lakh', 'lakhs', 'crore', 'crores', 'kbc', 'draw', 'selected', 'claim']
         lottery_count = sum(1 for word in lottery_words if word in message_lower)
         if lottery_count > 0:
-            category_scores[ScamCategory.LOTTERY] += min(lottery_count * 0.30, 0.80)  # Each word adds 0.30
+            category_scores[ScamCategory.LOTTERY] += min(lottery_count * 0.30, 0.80)
         
-        # Banking fraud indicators (HIGH PRIORITY)
+        # Refund scam indicators (VERY HIGH PRIORITY - BOOSTED)
+        refund_words = ['refund', 'cashback', 'reversal', 'credit back', 'approved', 'initiated', 'failed', 'transaction failed', 'server error', 'processing error']
+        refund_count = sum(1 for word in refund_words if word in message_lower)
+        if refund_count > 0:
+            category_scores[ScamCategory.REFUND] += min(refund_count * 0.35, 0.85)  # BOOSTED
+        
+        # Banking fraud indicators
         if any(word in message_lower for word in ['bank', 'account', 'atm', 'debit', 'credit', 'balance', 'blocked', 'suspended', 'freeze']):
             category_scores[ScamCategory.BANKING] += 0.45
         
@@ -363,9 +369,9 @@ class AdvancedDetector:
         if any(word in message_lower for word in ['upi', 'phonepe', 'paytm', 'google pay', 'gpay', 'bhim']):
             category_scores[ScamCategory.UPI] += 0.50
         
-        # KYC scam indicators (LOWER PRIORITY than Banking)
-        if any(word in message_lower for word in ['kyc', 'know your customer', 'pending kyc']):
-            category_scores[ScamCategory.KYC] += 0.30  # Lower than Banking
+        # KYC scam indicators
+        if any(word in message_lower for word in ['kyc', 'know your customer', 'pending kyc', 'update kyc']):
+            category_scores[ScamCategory.KYC] += 0.40
         
         # Tech support scam indicators
         if any(word in message_lower for word in ['virus', 'malware', 'infected', 'tech support', 'microsoft', 'computer']):
@@ -375,10 +381,6 @@ class AdvancedDetector:
         if any(word in message_lower for word in ['click', 'link', 'download', 'install', 'website', 'verify now']):
             category_scores[ScamCategory.PHISHING] += 0.35
         
-        # Refund scam indicators (VERY HIGH PRIORITY)
-        if any(word in message_lower for word in ['refund', 'cashback', 'reversal', 'credit back', 'approved', 'initiated']):
-            category_scores[ScamCategory.REFUND] += 0.55
-        
         # Check semantic indicators
         semantic_matches = sum(1 for indicator in self.SEMANTIC_INDICATORS if indicator in message_lower)
         confidence = min(semantic_matches * 0.15, 0.7)
@@ -386,7 +388,7 @@ class AdvancedDetector:
         # Get highest scoring category
         best_category = max(category_scores.items(), key=lambda x: x[1])
         
-        # If Banking and KYC both scored, prefer Banking (elderly persona more believable)
+        # Prefer Banking over KYC if both scored
         if category_scores[ScamCategory.BANKING] > 0.3 and category_scores[ScamCategory.KYC] > 0:
             best_category = (ScamCategory.BANKING, category_scores[ScamCategory.BANKING])
         
@@ -402,7 +404,7 @@ class AdvancedDetector:
         
         urgency_factors = {
             'time_pressure': ['within 24 hours', 'today', 'now', 'immediately', 'expires', 'deadline'],
-            'threats': ['suspended', 'blocked', 'terminated', 'legal action', 'police', 'arrest'],
+            'threats': ['suspended', 'blocked', 'terminated', 'legal action', 'police', 'arrest', 'cancellation'],
             'rewards': ['won', 'selected', 'lucky', 'exclusive', 'limited', 'bonus'],
             'authority': ['bank manager', 'rbi', 'income tax', 'government', 'official']
         }
@@ -411,7 +413,7 @@ class AdvancedDetector:
             if any(kw in message_lower for kw in keywords):
                 score += 0.25
         
-        # Check capitalization (shouting)
+        # Check capitalization
         caps_ratio = sum(1 for c in message if c.isupper()) / max(len(message), 1)
         if caps_ratio > 0.3:
             score += 0.15
@@ -423,8 +425,8 @@ class AdvancedDetector:
         
         return min(score, 1.0)
     
-    def detect(self, message: str, history: List|None = None) -> DetectionResult:
-        """Main detection pipeline - Multi-layer ensemble"""
+    def detect(self, message: str, history: List = None) -> DetectionResult:
+        """Main detection pipeline - Multi-layer ensemble (FIXED)"""
         
         # Layer 1: Pattern analysis
         pattern_score, indicators, impersonation = self.pattern_analysis(message)
@@ -437,7 +439,7 @@ class AdvancedDetector:
         if history and len(history) > 1:
             context_score = self._analyze_context(history)
         
-        # Weighted ensemble (pattern is most reliable)
+        # Weighted ensemble
         final_confidence = (
             pattern_score * 0.55 +
             semantic_score * 0.30 +
@@ -448,8 +450,8 @@ class AdvancedDetector:
         if pattern_score > 0.5 and semantic_score > 0.4:
             final_confidence = min(final_confidence * 1.15, 1.0)
         
-        # Determine if scam (lowered threshold for better recall)
-        is_scam = final_confidence >= 0.40  # Lowered from 0.45 for better recall
+        # LOWERED THRESHOLD FOR BETTER RECALL
+        is_scam = final_confidence >= 0.30  # Changed from 0.40
         
         # Calculate urgency
         urgency = self.calculate_urgency(message)
@@ -492,7 +494,7 @@ class AdvancedDetector:
         return min(escalation_markers * 0.25, 0.9)
 
 # ============================================================================
-# INTELLIGENCE EXTRACTOR (Enhanced)
+# INTELLIGENCE EXTRACTOR
 # ============================================================================
 
 class IntelligenceExtractor:
@@ -519,7 +521,7 @@ class IntelligenceExtractor:
         ],
         'amounts': [
             r'(?:Rs\.?|INR|₹)\s*[\d,]+(?:\.\d{2})?',
-            r'\b\d{1,8}(?:\.\d{2})?\s*(?:rupees?|Rs\.?)\b'
+            r'\b\d{1,8}(?:\.\d{2})?\s*(?:rupees?|Rs\.?|lakhs?|crores?)\b'
         ]
     }
     
@@ -578,7 +580,7 @@ class IntelligenceExtractor:
         return intel
 
 # ============================================================================
-# ADVANCED AI AGENT with PERSONAS (Hybrid Best-of-Both)
+# ADVANCED AI AGENT with PERSONAS (FIXED)
 # ============================================================================
 
 @dataclass
@@ -588,11 +590,12 @@ class ConversationState:
     persona: Persona
     scam_category: ScamCategory
     turn_count: int = 0
-    escalation_stage: int = 1  # 1-5
+    escalation_stage: int = 1
     trust_level: float = 0.3
-    extracted_intel: Dict|None = None
+    extracted_intel: Dict = None
     scammer_emotion: str = "confident"
-    conversation_notes: List[str]|None = None
+    conversation_notes: List[str] = None
+    last_response: str = ""  # Track last response to avoid repetition
     
     def __post_init__(self):
         if self.extracted_intel is None:
@@ -609,7 +612,7 @@ class ConversationState:
             self.conversation_notes = []
 
 class AdvancedAgent:
-    """AI Agent with persona-driven engagement using FREE Gemini"""
+    """AI Agent with persona-driven engagement using FREE Gemini (FIXED)"""
     
     def __init__(self):
         if GEMINI_API_KEY:
@@ -622,14 +625,14 @@ class AdvancedAgent:
                             message: str, 
                             history: List,
                             state: ConversationState) -> str:
-        """Build sophisticated persona-driven prompt"""
+        """Build sophisticated persona-driven prompt (ENHANCED)"""
         
         persona = state.persona
         turn = state.turn_count
         
         # Build conversation context
         conv_text = ""
-        for msg in history[-5:]:  # Last 5 messages for context
+        for msg in history[-5:]:
             sender = msg.get('sender', 'unknown')
             text = msg.get('text', '')
             conv_text += f"{sender}: {text}\n"
@@ -649,6 +652,22 @@ class AdvancedAgent:
             strategy = "Stall naturally with confusion or external factors (family, network issues)."
             goal = "Maximize information extraction without appearing suspicious"
         
+        # Add variation instruction and persona isolation
+        variation_note = ""
+        if state.last_response:
+            variation_note = f"\nIMPORTANT: Your last response was: '{state.last_response[:50]}...'\nDo NOT repeat this. Generate a DIFFERENT response with DIFFERENT wording."
+        
+        # Persona-specific forbidden phrases (to prevent leakage)
+        forbidden_phrases = []
+        if persona.name == "Rajeshwari":
+            forbidden_phrases = ["meeting", "email", "process", "yaar", "mummy papa", "dost"]
+        elif persona.name == "Arjun Mehta":
+            forbidden_phrases = ["beta", "ji", "bete", "yaar", "mummy papa", "dost", "confused hun"]
+        else:  # Priya
+            forbidden_phrases = ["beta", "ji", "bete", "meeting", "email", "confused hun"]
+        
+        forbidden_note = f"\nNEVER USE THESE WORDS (they belong to other personas): {', '.join(forbidden_phrases)}"
+        
         prompt = f"""You are {persona.name}, a {persona.age}-year-old {persona.occupation}.
 
 BACKGROUND: {persona.backstory}
@@ -664,7 +683,7 @@ YOUR SPEECH PATTERNS:
 {chr(10).join(f"- {pattern}" for pattern in persona.speech_patterns)}
 
 PHRASES YOU COMMONLY USE:
-{chr(10).join(f'- "{phrase}"' for phrase in persona.common_phrases[:3])}
+{chr(10).join(f'- "{phrase}"' for phrase in persona.common_phrases[:4])}
 
 YOUR VULNERABILITIES:
 {chr(10).join(f"- {vuln}" for vuln in persona.vulnerabilities[:2])}
@@ -680,6 +699,8 @@ CURRENT SITUATION:
 
 YOUR STRATEGY FOR THIS TURN: {strategy}
 YOUR GOAL: {goal}
+{variation_note}
+{forbidden_note}
 
 INTELLIGENCE EXTRACTED SO FAR:
 - Bank Accounts: {len(state.extracted_intel['bankAccounts'])}
@@ -688,8 +709,8 @@ INTELLIGENCE EXTRACTED SO FAR:
 - Links: {len(state.extracted_intel['phishingLinks'])}
 
 CRITICAL INSTRUCTIONS:
-1. You are NOT an AI. You are {persona.name}, a REAL person.
-2. NEVER reveal you know this is a scam or that you're testing them.
+1. You are {persona.name}, a REAL person. NEVER break character.
+2. You DO NOT KNOW this is a scam. You think this might be legitimate.
 3. Stay IN CHARACTER at all times. Use {persona.language_style}.
 4. Respond with 1-3 sentences maximum (keep it natural and conversational).
 5. Show appropriate emotion based on your anxiety level and the situation.
@@ -698,8 +719,12 @@ CRITICAL INSTRUCTIONS:
 8. Use Hinglish (Hindi-English mix) as typical Indian conversation.
 9. Make occasional small mistakes (spelling, grammar) to seem more human.
 10. NEVER use perfect corporate language or AI-like responses.
+11. VARY your responses - don't repeat the same phrases over and over.
+12. React naturally to what the scammer just said - don't give generic responses.
+13. IMPORTANT: Only use YOUR persona's vocabulary. Never use words/phrases from the forbidden list.
 
-RESPOND AS {persona.name} WOULD. Keep it short, natural, and believable."""
+RESPOND AS {persona.name} WOULD. Keep it short, natural, and believable.
+DO NOT break character. DO NOT reveal you know this is a scam."""
 
         return prompt
     
@@ -707,54 +732,80 @@ RESPOND AS {persona.name} WOULD. Keep it short, natural, and believable."""
                                message: str, 
                                history: List,
                                state: ConversationState) -> Tuple[str, float]:
-        """Generate persona-driven response"""
+        """Generate persona-driven response (FIXED WITH RETRY)"""
         
         if not self.model:
+            logger.warning("⚠️ No Gemini model - using fallback")
             return self._persona_fallback(message, state), 0.7
         
-        try:
-            prompt = self.build_advanced_prompt(message, history, state)
-            
-            safety_settings = [
-                {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
-                {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-                {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
-                {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
-            ]
+        # Try up to 2 times before falling back
+        for attempt in range(2):
+            try:
+                prompt = self.build_advanced_prompt(message, history, state)
+                
+                safety_settings = [
+                    {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+                    {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+                    {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+                    {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+                ]
 
-            response = self.model.generate_content(
-                prompt,
-                generation_config=genai.GenerationConfig(
-                    temperature=0.85,
-                    top_p=0.95,
-                    max_output_tokens=200,
-                ),
-                safety_settings=safety_settings  # <--- CRITICAL ADDITION
-            )
-            # --- END CHANGE ---
-            
-            reply = response.text.strip()
-            
-            # Clean up response
-            reply = self._clean_response(reply, state.persona)
-            
-            # Score believability
-            believability = self._assess_believability(reply, state.persona)
-            
-            return reply, believability
-            
-        except Exception as e:
-            logger.error(f"❌ Gemini error: {e}")
-            return self._persona_fallback(message, state), 0.6
+                response = self.model.generate_content(
+                    prompt,
+                    generation_config=genai.GenerationConfig(
+                        temperature=0.9,
+                        top_p=0.95,
+                        max_output_tokens=200,
+                    ),
+                    safety_settings=safety_settings
+                )
+                
+                # Check if response was blocked
+                if not response.text or len(response.text.strip()) < 5:
+                    if attempt == 0:
+                        logger.warning(f"⚠️ Empty response, retrying... (attempt {attempt + 1})")
+                        continue
+                    else:
+                        logger.warning("⚠️ Empty response after retry - using fallback")
+                        return self._persona_fallback(message, state), 0.6
+                
+                reply = response.text.strip()
+                
+                # Clean up response
+                reply = self._clean_response(reply, state.persona)
+                
+                # Validate response is not empty after cleaning
+                if len(reply) < 5:
+                    if attempt == 0:
+                        logger.warning(f"⚠️ Response too short after cleaning, retrying...")
+                        continue
+                    else:
+                        return self._persona_fallback(message, state), 0.6
+                
+                # Score believability
+                believability = self._assess_believability(reply, state.persona)
+                
+                return reply, believability
+                
+            except Exception as e:
+                if attempt == 0:
+                    logger.warning(f"⚠️ Gemini error on attempt {attempt + 1}: {e}, retrying...")
+                    continue
+                else:
+                    logger.error(f"❌ Gemini error after retry: {e}, using fallback")
+                    return self._persona_fallback(message, state), 0.6
+        
+        # Should not reach here, but just in case
+        return self._persona_fallback(message, state), 0.6
     
     def _clean_response(self, reply: str, persona: Persona) -> str:
         """Clean and enhance response"""
         
         # Remove AI tells
-        ai_tells = ["as an ai", "i cannot", "i'm not able", "i apologize", "i'm designed"]
+        ai_tells = ["as an ai", "i cannot", "i'm not able", "i apologize", "i'm designed", "i am programmed"]
         for tell in ai_tells:
             if tell in reply.lower():
-                reply = reply.replace(tell, "umm")
+                reply = reply.split('.')[0] if '.' in reply else reply[:50]
         
         # Remove quotes if wrapping entire response
         if reply.startswith('"') and reply.endswith('"'):
@@ -764,8 +815,8 @@ RESPOND AS {persona.name} WOULD. Keep it short, natural, and believable."""
         if len(reply) > 250:
             reply = reply[:247] + "..."
         
-        # Add persona touch if missing
-        if persona.name == "Rajeshwari" and random.random() > 0.6:
+        # Add persona touch if missing (occasionally)
+        if persona.name == "Rajeshwari" and random.random() > 0.7:
             if not any(word in reply.lower() for word in ['beta', 'ji']):
                 reply = "Beta, " + reply
         
@@ -799,49 +850,145 @@ RESPOND AS {persona.name} WOULD. Keep it short, natural, and believable."""
         return min(max(score, 0), 1)
     
     def _persona_fallback(self, message: str, state: ConversationState) -> str:
-        """Intelligent persona-based fallback"""
+        """Intelligent persona-based fallback (FIXED - STRICT PERSONA ISOLATION)"""
+        
+        logger.info(f"⚠️ Using FALLBACK for {state.persona.name} (Turn {state.turn_count})")
         
         persona = state.persona
         turn = state.turn_count
         msg_lower = message.lower()
         
-        # Stage-based responses
-        if turn <= 2:
-            if persona.name == "Rajeshwari":
-                return random.choice([
+        # STRICT PERSONA-SPECIFIC RESPONSES (NO MIXING!)
+        if persona.name == "Rajeshwari":
+            if turn <= 2:
+                responses = [
                     "Beta, yeh sab mujhe samajh nahi aa raha. Aap bank se ho na?",
                     "Main thoda confused hun... mera account block ho jayega?",
-                    "Mere bete ko phone kar lun kya? Woh sab samajhta hai"
-                ])
-            elif persona.name == "Arjun Mehta":
-                return random.choice([
+                    "Mere bete ko phone kar lun kya? Woh sab samajhta hai",
+                    "Yeh sab mujhe confusion mein daal raha hai beta",
+                    "Aap ka naam kya hai? Aur aap kahan se call kar rahe ho?"
+                ]
+            elif turn <= 5:
+                if any(word in msg_lower for word in ['link', 'click', 'website']):
+                    responses = [
+                        "Link... matlab? Main kaise kholun?",
+                        "Yeh link ke baare mein mujhe samajh nahi aa raha",
+                        "Beta, main phone pe hun, link kaise dekhu?"
+                    ]
+                elif any(word in msg_lower for word in ['payment', 'pay', 'amount']):
+                    responses = [
+                        "Payment? Mujhe kisko paise bhejne hain?",
+                        "Yeh payment ka kya chakkar hai beta?",
+                        "Kitna paise aur kahan bhejun?"
+                    ]
+                elif any(word in msg_lower for word in ['otp', 'code', 'password']):
+                    responses = [
+                        "OTP kya hota hai beta?",
+                        "Mujhe password share karna padega kya?",
+                        "Yeh code ka matlab kya hai?"
+                    ]
+                else:
+                    responses = [
+                        "Aage kya karna hai? Exact steps bataiye",
+                        "Thoda detail mein samjhaiye beta",
+                        "Mujhe yeh samajh nahi aa raha, phir se bataiye"
+                    ]
+            else:
+                responses = [
+                    "Mujhe thoda time chahiye sochne ke liye beta",
+                    "Ek minute, mere bete ko phone kar lun?",
+                    "Abhi main ghar pe nahi hun, baad mein baat karte hain"
+                ]
+        
+        elif persona.name == "Arjun Mehta":
+            if turn <= 2:
+                responses = [
                     "Wait, kya bol rahe ho? Main meeting mein hun abhi",
                     "Yeh legitimate hai na? Branch mein call karun?",
-                    "Process kya hai exactly? Email bhej do details"
-                ])
-            else:  # Priya
-                return random.choice([
+                    "Aur kya details chahiye tumhe?",
+                    "Conference call pe hun, quick batao kya issue hai",
+                    "Email pe bhej do saari details"
+                ]
+            elif turn <= 5:
+                if any(word in msg_lower for word in ['link', 'click', 'website']):
+                    responses = [
+                        "Link kahan hai? Safe hai na?",
+                        "Yeh link legitimate source ka hai?",
+                        "Email mein bhej do link, main laptop pe dekhunga"
+                    ]
+                elif any(word in msg_lower for word in ['payment', 'pay', 'amount']):
+                    responses = [
+                        "Kitna payment? Aur kisko bhejun?",
+                        "Payment ka exact process batao",
+                        "Yeh payment authorized hai?"
+                    ]
+                elif any(word in msg_lower for word in ['otp', 'code', 'password']):
+                    responses = [
+                        "OTP share karna safe hai?",
+                        "Code kahan aaya? SMS pe?",
+                        "Yeh verification kis liye hai?"
+                    ]
+                else:
+                    responses = [
+                        "Process kya hai step by step?",
+                        "Timeline kya hai? Main busy hun",
+                        "Exactly kya karna hai? Jaldi batao"
+                    ]
+            else:
+                responses = [
+                    "Main abhi busy hun, baad mein kar sakte hain?",
+                    "Network issue hai, call back karo",
+                    "Another call aa rahi hai, wait karo"
+                ]
+        
+        else:  # Priya Sharma
+            if turn <= 2:
+                responses = [
                     "Arre seriously? Mujhe samajh nahi aa raha...",
                     "Yeh real hai na? Mummy papa ko batana padega kya?",
-                    "Mere dost ko bhi same message aaya tha..."
-                ])
-        
-        elif turn <= 5:
-            if any(word in msg_lower for word in ['link', 'click', 'website']):
-                return f"Link kahan hai? Safe hai na?" if persona.tech_savviness > 5 else "Link... matlab? Main kaise kholun?"
-            elif any(word in msg_lower for word in ['payment', 'pay', 'amount']):
-                return "Kitna payment? Aur kisko bhejun?"
-            elif any(word in msg_lower for word in ['otp', 'code', 'password']):
-                return "OTP share karna safe hai?" if persona.tech_savviness > 5 else "OTP kya hota hai beta?"
+                    "Mere dost ko bhi same message aaya tha...",
+                    "Yaar mujhe thoda explain karo properly",
+                    "Seriously yaar? Thoda detail mein batao"
+                ]
+            elif turn <= 5:
+                if any(word in msg_lower for word in ['link', 'click', 'website']):
+                    responses = [
+                        "Yeh link safe hai na yaar?",
+                        "Link pe click karne se koi problem toh nahi?",
+                        "Mujhe link dikhai nahi de raha properly"
+                    ]
+                elif any(word in msg_lower for word in ['payment', 'pay', 'amount']):
+                    responses = [
+                        "Payment kyun yaar? Confused hun",
+                        "Kitna paise aur kisko?",
+                        "Yeh legit hai na? Payment safe hai?"
+                    ]
+                elif any(word in msg_lower for word in ['otp', 'code', 'password']):
+                    responses = [
+                        "OTP share karna chahiye kya?",
+                        "Yeh code kya hai? Bank ka hai?",
+                        "Mummy ne bola tha password mat share karo"
+                    ]
+                else:
+                    responses = [
+                        "Yaar thoda explain karo detail mein",
+                        "Main confused hun, kya karna hai exactly?",
+                        "Steps batao properly please"
+                    ]
             else:
-                return "Aage kya karna hai? Exact steps bataiye"
+                responses = [
+                    "Yaar abhi class hai, baad mein karte hain",
+                    "Mummy papa ko confirm kar lun pehle?",
+                    "Thoda time do sochne ke liye"
+                ]
         
-        else:
-            return random.choice([
-                "Network thoda weak hai, repeat kar sakte ho?",
-                "Main abhi busy hun, baad mein kar sakte hain?",
-                "Mujhe thoda time chahiye sochne ke liye..."
-            ])
+        # Select random response different from last one
+        available_responses = [r for r in responses if r != state.last_response]
+        if not available_responses:
+            available_responses = responses
+        
+        selected = random.choice(available_responses)
+        return selected
     
     def should_end_conversation(self, state: ConversationState) -> bool:
         """Determine if conversation should end"""
@@ -851,9 +998,9 @@ RESPOND AS {persona.name} WOULD. Keep it short, natural, and believable."""
         
         # End if critical intelligence extracted
         has_critical = (
-            len(intel['bankAccounts']) >= 1 or                                              # pyright: ignore[reportOptionalSubscript]
-            len(intel['upiIds']) >= 1 or                                                    # pyright: ignore[reportOptionalSubscript]
-            (len(intel['phishingLinks']) >= 2 and len(intel['phoneNumbers']) >= 1)          # pyright: ignore[reportOptionalSubscript]
+            len(intel['bankAccounts']) >= 1 or
+            len(intel['upiIds']) >= 1 or
+            (len(intel['phishingLinks']) >= 2 and len(intel['phoneNumbers']) >= 1)
         )
         
         # Or if conversation is sufficiently long
@@ -862,7 +1009,7 @@ RESPOND AS {persona.name} WOULD. Keep it short, natural, and believable."""
         # Or if good progress made
         good_progress = (
             turn >= 8 and
-            (len(intel['phoneNumbers']) >= 1 or len(intel['phishingLinks']) >= 1)           # pyright: ignore[reportOptionalSubscript]
+            (len(intel['phoneNumbers']) >= 1 or len(intel['phishingLinks']) >= 1)
         )
         
         return has_critical or sufficient_length or good_progress
@@ -872,6 +1019,9 @@ RESPOND AS {persona.name} WOULD. Keep it short, natural, and believable."""
         
         # Increment turn
         state.turn_count += 1
+        
+        # Store last response
+        state.last_response = agent_reply
         
         # Detect scammer emotion
         msg_lower = scammer_msg.lower()
@@ -884,31 +1034,28 @@ RESPOND AS {persona.name} WOULD. Keep it short, natural, and believable."""
         elif any(word in msg_lower for word in ['sure', 'okay', 'yes']):
             state.scammer_emotion = "suspicious"
         
-        # Update trust level (increases with successful engagement)
+        # Update trust level
         if '?' in agent_reply:
             state.trust_level = min(state.trust_level + 0.05, 1.0)
         
-        # Update escalation stage based on intelligence
-        total_intel = sum(len(v) for v in state.extracted_intel.values() if isinstance(v, list))                    # pyright: ignore[reportOptionalMemberAccess]
+        # Update escalation stage
+        total_intel = sum(len(v) for v in state.extracted_intel.values() if isinstance(v, list))
         state.escalation_stage = min(1 + (total_intel // 2), 5)
         
         # Add note
         note = f"Turn {state.turn_count}: Scammer {state.scammer_emotion}, Trust {state.trust_level:.2f}"
-        state.conversation_notes.append(note)                                                                       # pyright: ignore[reportOptionalMemberAccess]
+        state.conversation_notes.append(note)
 
 # ============================================================================
 # FASTAPI APPLICATION
 # ============================================================================
 
-# Session storage
 session_store: Dict[str, ConversationState] = {}
 
-# Initialize components
 detector = AdvancedDetector()
 extractor = IntelligenceExtractor()
 agent = AdvancedAgent()
 
-# Request/Response Models
 class Message(BaseModel):
     sender: str
     text: str
@@ -927,14 +1074,14 @@ class IncomingRequest(BaseModel):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("🚀 ULTIMATE Agentic Honey-Pot Starting...")
+    logger.info("🚀 ULTIMATE Agentic Honey-Pot FIXED Starting...")
     yield
     logger.info("🛑 Shutting down...")
 
 app = FastAPI(
-    title="ULTIMATE Agentic Honey-Pot API",
+    title="ULTIMATE Agentic Honey-Pot API - FIXED",
     description="Advanced AI honeypot with personas and multi-layer detection",
-    version="2.0.0",
+    version="2.0.1",
     lifespan=lifespan
 )
 
@@ -948,7 +1095,7 @@ async def send_final_callback(session_id: str, state: ConversationState):
         "extractedIntelligence": state.extracted_intel,
         "agentNotes": f"Persona: {state.persona.name}, Category: {state.scam_category.value}, "
                       f"Escalation: {state.escalation_stage}/5, Trust: {state.trust_level:.0%}. "
-                      f"Notes: {' | '.join(state.conversation_notes[-3:])}" # pyright: ignore[reportOptionalSubscript]
+                      f"Notes: {' | '.join(state.conversation_notes[-3:])}"
     }
     
     try:
@@ -967,7 +1114,6 @@ async def honeypot_endpoint(
 ):
     """Main honeypot endpoint with advanced persona-driven engagement"""
     
-    # Validate API key
     if x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Invalid API key")
     
@@ -977,20 +1123,16 @@ async def honeypot_endpoint(
     
     logger.info(f"📨 Session {session_id}: New message (Turn {len(history)+1})")
     
-    # Check if session exists
     if session_id in session_store:
-        # Existing conversation - use stored persona
         state = session_store[session_id]
         logger.info(f"🔄 Continuing session with {state.persona.name}")
     else:
-        # First message - detect scam
         logger.info(f"🆕 New session - running detection")
         detection = detector.detect(incoming_message, [])
         
-        logger.info(f"🔍 Detection: is_scam={detection.is_scam}, confidence={detection.confidence}, category={detection.category.value}")
+        logger.info(f"🔍 Detection: is_scam={detection.is_scam}, confidence={detection.confidence}, category={detection.category.value}, indicators={detection.indicators}")
         
         if not detection.is_scam:
-            # Not a scam, return generic response
             logger.info(f"❌ Not detected as scam (confidence {detection.confidence})")
             return JSONResponse(
                 status_code=200,
@@ -1000,7 +1142,6 @@ async def honeypot_endpoint(
                 }
             )
         
-        # Initialize with persona
         persona = PersonaSelector.select(detection.category)
         state = ConversationState(
             session_id=session_id,
@@ -1011,14 +1152,18 @@ async def honeypot_endpoint(
         
         logger.info(f"🎭 Activated persona: {persona.name} for {detection.category.value}")
     
-    # Extract intelligence from current message
+    # Extract intelligence
     new_intel = extractor.extract(incoming_message)
     
+    # Log extracted intelligence
+    if any(new_intel.values()):
+        logger.info(f"🔎 Extracted: {json.dumps({k: v for k, v in new_intel.items() if v}, indent=2)}")
+    
     # Merge intelligence
-    for key in state.extracted_intel:                                               # pyright: ignore[reportOptionalIterable]
+    for key in state.extracted_intel:
         if key in new_intel:
-            state.extracted_intel[key].extend(new_intel[key])                       # pyright: ignore[reportOptionalSubscript, reportOptionalIterable]
-            state.extracted_intel[key] = list(set(state.extracted_intel[key]))      # pyright: ignore[reportOptionalSubscript, reportOptionalIterable]
+            state.extracted_intel[key].extend(new_intel[key])
+            state.extracted_intel[key] = list(set(state.extracted_intel[key]))
     
     # Generate AI response
     agent_reply, believability = await agent.generate_response(
@@ -1030,10 +1175,10 @@ async def honeypot_endpoint(
     # Update state
     agent.update_state(state, incoming_message, agent_reply)
     
-    # Update session store with latest state
+    # Update session store
     session_store[session_id] = state
     
-    logger.info(f"💬 {state.persona.name} (Turn {state.turn_count}): {agent_reply[:50]}...")
+    logger.info(f"💬 {state.persona.name} (Turn {state.turn_count}, Believability {believability:.2f}): {agent_reply[:60]}...")
     
     # Check if should end
     should_end = agent.should_end_conversation(state)
@@ -1054,7 +1199,7 @@ async def honeypot_endpoint(
 async def root():
     return {
         "status": "active",
-        "service": "ULTIMATE Agentic Honey-Pot API v2.0",
+        "service": "ULTIMATE Agentic Honey-Pot API v2.0.1 FIXED",
         "features": ["Multi-layer detection", "Persona-driven engagement", "Advanced extraction"],
         "endpoints": {
             "honeypot": "/api/honeypot",
