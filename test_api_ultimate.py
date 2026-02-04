@@ -5,8 +5,8 @@ import random
 from typing import List, Dict, Any
 from datetime import datetime
 
-API_URL = "http://localhost:8000/api/honeypot"  
-HEALTH_URL = "http://localhost:8000/health"
+API_URL = "https://honey-pot-buildathon.onrender.com"  
+HEALTH_URL = "https://honey-pot-buildathon.onrender.com/health"
 API_KEY = "Honey-Pot_Buildathon-123456"
 
 class Colors:

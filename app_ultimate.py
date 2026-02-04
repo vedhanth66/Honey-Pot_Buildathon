@@ -1223,7 +1223,7 @@ async def send_final_callback(session_id: str, state: ConversationState):
     logger.critical(f"🚨 ALL CALLBACK RETRIES FAILED: {session_id}")
     return False
 
-@app.post("/api/honeypot")
+@app.post("/api/honeypot/")
 async def honeypot_endpoint(
     request: IncomingRequest,
     x_api_key: str = Header(..., alias="x-api-key")
@@ -1297,7 +1297,7 @@ async def root():
         "endpoints": ["/api/honeypot", "/health", "/admin/metrics"]
     }
 
-@app.get("/health")
+@app.get("/health/")
 async def health_check():
     return {
         "status": "healthy",
@@ -1307,7 +1307,7 @@ async def health_check():
         "personas_loaded": 3
     }
 
-@app.get("/admin/metrics")
+@app.get("/admin/metrics/")
 async def get_metrics(x_api_key: str = Header(...)):
     """Real-time metrics for judges"""
     if x_api_key != API_KEY:
