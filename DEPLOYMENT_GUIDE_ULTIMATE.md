@@ -138,7 +138,7 @@ git push -u origin main
    
    ```
    Key: API_KEY
-   Value: your-secret-api-key-12345
+   Value: Honey-Pot_Buildathon-123456
    (Choose any secure string, this is for API authentication)
    
    Key: GEMINI_API_KEY
@@ -189,7 +189,7 @@ https://your-app-name.onrender.com/health
 
 ```bash
 curl -X POST https://your-app-name.onrender.com/api/honeypot \
-  -H "x-api-key: your-secret-api-key-12345" \
+  -H "x-api-key: Honey-Pot_Buildathon-123456" \
   -H "Content-Type: application/json" \
   -d '{
     "sessionId": "test-banking-001",
@@ -214,7 +214,7 @@ curl -X POST https://your-app-name.onrender.com/api/honeypot \
 
 ```bash
 curl -X POST https://your-app-name.onrender.com/api/honeypot \
-  -H "x-api-key: your-secret-api-key-12345" \
+  -H "x-api-key: Honey-Pot_Buildathon-123456" \
   -H "Content-Type: application/json" \
   -d '{
     "sessionId": "test-upi-001",
@@ -239,7 +239,7 @@ curl -X POST https://your-app-name.onrender.com/api/honeypot \
 
 ```bash
 curl -X POST https://your-app-name.onrender.com/api/honeypot \
-  -H "x-api-key: your-secret-api-key-12345" \
+  -H "x-api-key: Honey-Pot_Buildathon-123456" \
   -H "Content-Type: application/json" \
   -d '{
     "sessionId": "test-phishing-001",
@@ -318,7 +318,7 @@ https://your-app-name.onrender.com/api/honeypot
 
 **2. API Key:**
 ```
-your-secret-api-key-12345
+Honey-Pot_Buildathon-123456
 ```
 
 **3. Problem Statement:**

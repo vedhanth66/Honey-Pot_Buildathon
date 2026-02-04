@@ -370,7 +370,7 @@ https://your-app-name.onrender.com/api/honeypot
 
 **2. API Key**:
 ```
-your-secret-api-key-12345
+Honey-Pot_Buildathon-123456
 ```
 
 **3. Technology Stack**:

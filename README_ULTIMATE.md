@@ -133,7 +133,7 @@ Download these files:
 
 4. **Environment Variables**:
    ```
-   API_KEY = your-secret-api-key-12345
+   API_KEY = Honey-Pot_Buildathon-123456
    GEMINI_API_KEY = AIza... (your key from Step 1)
    ```
 
@@ -149,7 +149,7 @@ curl https://your-app.onrender.com/health
 **Test Scam Detection**:
 ```bash
 curl -X POST https://your-app.onrender.com/api/honeypot \
-  -H "x-api-key: your-secret-api-key-12345" \
+  -H "x-api-key: Honey-Pot_Buildathon-123456" \
   -H "Content-Type: application/json" \
   -d '{
     "sessionId": "test-001",

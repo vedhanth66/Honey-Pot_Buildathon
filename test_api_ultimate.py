@@ -7,7 +7,7 @@ from datetime import datetime
 
 API_URL = "http://localhost:8000/api/honeypot"  
 HEALTH_URL = "http://localhost:8000/health"
-API_KEY = "your-secret-api-key-12345"
+API_KEY = "Honey-Pot_Buildathon-123456"
 
 class Colors:
     HEADER = '\033[95m'

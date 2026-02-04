@@ -115,7 +115,7 @@ Click "Add Environment Variable":
 
 ```
 Key: API_KEY
-Value: your-secret-api-key-12345
+Value: Honey-Pot_Buildathon-123456
 (Choose any secure string)
 
 Key: GEMINI_API_KEY
@@ -157,7 +157,7 @@ Run this curl command:
 
 ```bash
 curl -X POST https://your-app-name.onrender.com/api/honeypot \
-  -H "x-api-key: your-secret-api-key-12345" \
+  -H "x-api-key: Honey-Pot_Buildathon-123456" \
   -H "Content-Type: application/json" \
   -d '{
     "sessionId": "test-victory-001",
@@ -198,7 +198,7 @@ https://your-app-name.onrender.com/api/honeypot
 
 **2. API Key:**
 ```
-your-secret-api-key-12345
+Honey-Pot_Buildathon-123456
 ```
 
 **3. Problem Statement:**
