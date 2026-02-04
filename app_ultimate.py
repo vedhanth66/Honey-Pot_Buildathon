@@ -18,7 +18,7 @@ import time
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-API_KEY = os.getenv("API_KEY", "your-secret-api-key-12345")
+API_KEY = os.getenv("API_KEY", "Honey-Pot_Buildathon-123456")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 CALLBACK_URL = "https://hackathon.guvi.in/api/updateHoneyPotFinalResult"
 
