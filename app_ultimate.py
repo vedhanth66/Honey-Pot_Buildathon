@@ -26,7 +26,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Configuration
-API_KEY = os.getenv("API_KEY", "Honey-Pot_Buildathon-123456")
+API_KEY = os.getenv("API_KEY", "your-secret-api-key-12345")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 CALLBACK_URL = "https://hackathon.guvi.in/api/updateHoneyPotFinalResult"
 
@@ -224,16 +224,16 @@ class AdvancedDetector:
     
     # Critical patterns - Immediate high confidence (RELAXED for better detection)
     CRITICAL_PATTERNS = {
-        'upi_request': r'\b(upi|phone\s*pe|google\s*pay|paytm|gpay)',
-        'account_request': r'\b(account|acc)\s*(?:no\.?|number)?',
-        'otp_request': r'\b(otp|one[\s-]?time|verification\s*code|pin|cvv|password)',
-        'bank_mention': r'\b(sbi|hdfc|icici|axis|pnb|bob|canara|union|kotak|bank)',
-        'govt_impersonation': r'\b(income\s*tax|itr|gst|aadhaar|pan|rbi|reserve\s*bank|government)',
-        'urgent_threat': r'\b(block|suspend|expire|deactivate|terminate|close|freeze|locked)',
-        'prize_claim': r'\b(won|winner|congratulations|selected|lucky|prize|reward|claim|lakh)',
-        'payment_link': r'\b(click|tap|visit|open|link|http)',
-        'legal_threat': r'\b(legal|police|fir|arrest|court|summons|warrant|case|action)',
-        'refund_bait': r'\b(refund|cashback|reversal|approved|initiated)',
+        'upi_request': r'(?i)\b(upi|phone\s*pe|google\s*pay|paytm|gpay)',
+        'account_request': r'(?i)\b(account|acc)\s*(?:no\.?|number)?',
+        'otp_request': r'(?i)\b(otp|one[\s-]?time|verification\s*code|pin|cvv|password)',
+        'bank_mention': r'(?i)\b(sbi|hdfc|icici|axis|pnb|bob|canara|union|kotak|bank)',
+        'govt_impersonation': r'(?i)\b(income\s*tax|itr|gst|aadhaar|pan|rbi|reserve\s*bank|government)',
+        'urgent_threat': r'(?i)\b(block|suspend|expire|deactivate|terminate|close|freeze|locked)',
+        'prize_claim': r'(?i)\b(won|winner|win|congratulations?|congrats|selected|lucky|prize|reward|claim|lakhs?|crores?|rs\.?\s*\d+|₹\s*\d+|kbc|lottery|draw)',
+        'payment_link': r'(?i)\b(click|tap|visit|open|link|http)',
+        'legal_threat': r'(?i)\b(legal|police|fir|arrest|court|summons|warrant|case|action)',
+        'refund_bait': r'(?i)\b(refund|cashback|reversal|approved|initiated)',
     }
     
     # Semantic indicators for context
@@ -263,18 +263,31 @@ class AdvancedDetector:
         score = 0.0
         impersonation = None
         
-        # Check critical patterns
+        # SUPER HIGH PRIORITY: Lottery/Prize scams (check first!)
+        lottery_keywords = ['congratulations', 'congrats', 'won', 'winner', 'win', 'prize', 'lottery', 'lucky draw', 'lucky', 'lakh', 'lakhs', 'crore', 'crores', 'selected', 'claim', 'kbc', 'draw']
+        lottery_count = sum(1 for word in lottery_keywords if word in message_lower)
+        if lottery_count >= 2:  # If 2+ lottery keywords found
+            indicators.append(f"LOTTERY_SCAM: {lottery_count} strong indicators")
+            score += min(lottery_count * 0.35, 0.90)  # Each keyword adds 0.35, max 0.90
+        
+        # Check critical patterns (now count multiple matches)
         for pattern_name, pattern in self.CRITICAL_PATTERNS.items():
             matches = re.findall(pattern, message_lower)
             if matches:
-                indicators.append(f"CRITICAL: {pattern_name}")
+                match_count = len(set(matches))  # Count unique matches
+                indicators.append(f"CRITICAL: {pattern_name} ({match_count} matches)")
+                
                 # Increased weights for better detection
                 if pattern_name in ['otp_request', 'account_request', 'upi_request']:
-                    score += 0.40  # Increased from 0.35
-                elif pattern_name in ['bank_mention', 'urgent_threat', 'prize_claim']:
-                    score += 0.30  # Increased from 0.25
+                    score += min(match_count * 0.40, 0.50)  # Critical data requests
+                elif pattern_name == 'prize_claim':
+                    score += min(match_count * 0.35, 0.70)  # Prize claims - count each match
+                elif pattern_name == 'refund_bait':
+                    score += min(match_count * 0.35, 0.50)  # Refund scams
+                elif pattern_name in ['bank_mention', 'urgent_threat']:
+                    score += min(match_count * 0.30, 0.45)  # Bank/urgency mentions
                 else:
-                    score += 0.25  # Increased from 0.20
+                    score += min(match_count * 0.25, 0.40)  # Other patterns
         
         # Check for impersonation (simplified)
         impersonation_keywords = [
@@ -320,7 +333,7 @@ class AdvancedDetector:
         """Semantic pattern detection - Layer 2"""
         message_lower = message.lower()
         
-        # Category detection
+        # Category detection (prioritized by specificity)
         category_scores = {
             ScamCategory.BANKING: 0.0,
             ScamCategory.UPI: 0.0,
@@ -331,33 +344,35 @@ class AdvancedDetector:
             ScamCategory.REFUND: 0.0
         }
         
-        # Banking fraud indicators
-        if any(word in message_lower for word in ['bank', 'account', 'atm', 'debit', 'credit']):
-            category_scores[ScamCategory.BANKING] += 0.3
+        # Lottery fraud indicators (HIGHEST PRIORITY - check first)
+        lottery_words = ['won', 'winner', 'win', 'congratulations', 'congrats', 'lottery', 'lucky draw', 'lucky', 'prize', 'lakh', 'lakhs', 'crore', 'crores', 'kbc', 'draw', 'selected', 'claim']
+        lottery_count = sum(1 for word in lottery_words if word in message_lower)
+        if lottery_count > 0:
+            category_scores[ScamCategory.LOTTERY] += min(lottery_count * 0.30, 0.80)  # Each word adds 0.30
+        
+        # Banking fraud indicators (HIGH PRIORITY)
+        if any(word in message_lower for word in ['bank', 'account', 'atm', 'debit', 'credit', 'balance', 'blocked', 'suspended', 'freeze']):
+            category_scores[ScamCategory.BANKING] += 0.45
         
         # UPI fraud indicators
-        if any(word in message_lower for word in ['upi', 'phonepe', 'paytm', 'google pay', 'gpay']):
-            category_scores[ScamCategory.UPI] += 0.4
+        if any(word in message_lower for word in ['upi', 'phonepe', 'paytm', 'google pay', 'gpay', 'bhim']):
+            category_scores[ScamCategory.UPI] += 0.50
         
-        # KYC scam indicators
-        if any(word in message_lower for word in ['kyc', 'know your customer', 'update', 'verify']):
-            category_scores[ScamCategory.KYC] += 0.35
-        
-        # Lottery scam indicators
-        if any(word in message_lower for word in ['won', 'winner', 'lottery', 'prize', 'lucky draw', 'congratulations']):
-            category_scores[ScamCategory.LOTTERY] += 0.45
+        # KYC scam indicators (LOWER PRIORITY than Banking)
+        if any(word in message_lower for word in ['kyc', 'know your customer', 'pending kyc']):
+            category_scores[ScamCategory.KYC] += 0.30  # Lower than Banking
         
         # Tech support scam indicators
-        if any(word in message_lower for word in ['virus', 'malware', 'infected', 'tech support', 'microsoft']):
-            category_scores[ScamCategory.TECH_SUPPORT] += 0.4
+        if any(word in message_lower for word in ['virus', 'malware', 'infected', 'tech support', 'microsoft', 'computer']):
+            category_scores[ScamCategory.TECH_SUPPORT] += 0.50
         
         # Phishing indicators
-        if any(word in message_lower for word in ['click', 'link', 'download', 'install', 'website']):
-            category_scores[ScamCategory.PHISHING] += 0.3
+        if any(word in message_lower for word in ['click', 'link', 'download', 'install', 'website', 'verify now']):
+            category_scores[ScamCategory.PHISHING] += 0.35
         
-        # Refund scam indicators
-        if any(word in message_lower for word in ['refund', 'cashback', 'reversal', 'credit back']):
-            category_scores[ScamCategory.REFUND] += 0.35
+        # Refund scam indicators (VERY HIGH PRIORITY)
+        if any(word in message_lower for word in ['refund', 'cashback', 'reversal', 'credit back', 'approved', 'initiated']):
+            category_scores[ScamCategory.REFUND] += 0.55
         
         # Check semantic indicators
         semantic_matches = sum(1 for indicator in self.SEMANTIC_INDICATORS if indicator in message_lower)
@@ -365,6 +380,11 @@ class AdvancedDetector:
         
         # Get highest scoring category
         best_category = max(category_scores.items(), key=lambda x: x[1])
+        
+        # If Banking and KYC both scored, prefer Banking (elderly persona more believable)
+        if category_scores[ScamCategory.BANKING] > 0.3 and category_scores[ScamCategory.KYC] > 0:
+            best_category = (ScamCategory.BANKING, category_scores[ScamCategory.BANKING])
+        
         if best_category[1] > 0:
             return best_category[1], best_category[0]
         
@@ -424,7 +444,7 @@ class AdvancedDetector:
             final_confidence = min(final_confidence * 1.15, 1.0)
         
         # Determine if scam (lowered threshold for better recall)
-        is_scam = final_confidence >= 0.45  # Lowered from 0.60
+        is_scam = final_confidence >= 0.40  # Lowered from 0.45 for better recall
         
         # Calculate urgency
         urgency = self.calculate_urgency(message)
@@ -941,15 +961,23 @@ async def honeypot_endpoint(
     incoming_message = request.message.text
     history = request.conversationHistory
     
-    logger.info(f"📨 Session {session_id}: New message")
+    logger.info(f"📨 Session {session_id}: New message (Turn {len(history)+1})")
     
-    # Initialize or retrieve session
-    if session_id not in session_store:
+    # Check if session exists
+    if session_id in session_store:
+        # Existing conversation - use stored persona
+        state = session_store[session_id]
+        logger.info(f"🔄 Continuing session with {state.persona.name}")
+    else:
         # First message - detect scam
+        logger.info(f"🆕 New session - running detection")
         detection = detector.detect(incoming_message, [])
+        
+        logger.info(f"🔍 Detection: is_scam={detection.is_scam}, confidence={detection.confidence}, category={detection.category.value}")
         
         if not detection.is_scam:
             # Not a scam, return generic response
+            logger.info(f"❌ Not detected as scam (confidence {detection.confidence})")
             return JSONResponse(
                 status_code=200,
                 content={
@@ -968,8 +996,6 @@ async def honeypot_endpoint(
         session_store[session_id] = state
         
         logger.info(f"🎭 Activated persona: {persona.name} for {detection.category.value}")
-    else:
-        state = session_store[session_id]
     
     # Extract intelligence from current message
     new_intel = extractor.extract(incoming_message)
@@ -989,6 +1015,11 @@ async def honeypot_endpoint(
     
     # Update state
     agent.update_state(state, incoming_message, agent_reply)
+    
+    # Update session store with latest state
+    session_store[session_id] = state
+    
+    logger.info(f"💬 {state.persona.name} (Turn {state.turn_count}): {agent_reply[:50]}...")
     
     # Check if should end
     should_end = agent.should_end_conversation(state)
