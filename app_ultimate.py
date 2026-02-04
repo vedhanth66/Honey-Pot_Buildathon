@@ -613,7 +613,7 @@ class AdvancedAgent:
     
     def __init__(self):
         if GEMINI_API_KEY:
-            self.model = genai.GenerativeModel('gemini-1.5-flash')
+            self.model = genai.GenerativeModel('gemini-2.5-flash')
         else:
             self.model = None
             logger.warning("⚠️ Gemini API key not set")
@@ -913,6 +913,12 @@ class Message(BaseModel):
     sender: str
     text: str
     timestamp: int
+
+    def get(self, attrib_name: str, default: str):
+        try:
+            return getattr(self, attrib_name)
+        except Exception as e:
+            return default
 
 class Metadata(BaseModel):
     channel: Optional[str] = "SMS"
