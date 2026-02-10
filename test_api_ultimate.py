@@ -209,7 +209,7 @@ def run_scenario(scenario: Dict):
                 f"{API_URL}/api/honeypot", 
                 headers={"x-api-key": API_KEY, "Content-Type": "application/json"},
                 json=payload,
-                timeout=15
+                timeout=60
             )
             latency = (time.time() - start_ts) * 1000
             

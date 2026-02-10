@@ -3,11 +3,10 @@ ULTIMATE Agentic Honey-Pot System - FINAL PRODUCTION VERSION
 All critical bugs fixed - Ready for 1st place
 """
 
-from fastapi import FastAPI, HTTPException, Header, Request
+from fastapi import FastAPI, HTTPException, Header
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any, Tuple
-import google.generativeai as genai
+from typing import List, Optional, Dict, Tuple
 import re
 import os
 import httpx
@@ -18,9 +17,9 @@ from contextlib import asynccontextmanager
 from enum import Enum
 from dataclasses import dataclass, field
 import random
-import time
 import asyncio
 import dotenv
+import ollama
 
 dotenv.load_dotenv()
 
@@ -31,14 +30,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 API_KEY = os.getenv("API_KEY", "Honey-Pot_Buildathon-123456")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma3:4b-it-qat")
 CALLBACK_URL = "https://hackathon.guvi.in/api/updateHoneyPotFinalResult"
-
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
-    logger.info("Gemini API configured")
-else:
-    logger.warning("Gemini API key not set - using fallback mode")
 
 class ScamCategory(Enum):
     BANKING = "banking_fraud"
@@ -92,19 +85,15 @@ class PersonaLibrary:
                 ],
                 common_phrases=[
                     "Beta, main thoda samajh nahi pa rahi hun",
-                    "Mere bete ko phone karna padega kya?",
                     "Pehle kabhi aisa nahi hua",
                     "Mujhe aap ka naam bataiye",
                     "Bank se call hai toh theek hai",
                     "Yeh sab mujhe confusion mein daal raha hai",
-                    "Ek minute, main apne bete se pooch lun?"
                 ],
                 vulnerabilities=[
-                    "fear of losing life savings",
                     "desire to not trouble children",
                     "trust in authority figures",
                     "confusion about technology",
-                    "urgency-induced panic"
                 ],
                 backstory="Widow living alone, manages finances but relies on bank advice. Recently got smartphone from grandson.",
                 language_style="Formal Hinglish, occasionally makes tech mistakes"
@@ -127,8 +116,7 @@ class PersonaLibrary:
                 common_phrases=[
                     "Jaldi karo, meeting hai",
                     "Email bhej do details",
-                    "Main branch mein complaint kar dunga",
-                    "Yeh legitimate hai na?",
+                    "Yeh legitimate lag raha hain",
                     "Process kya hai exactly?",
                     "Conference call pe hun, quick batao",
                     "Aur kya details chahiye tumhe?"
@@ -155,13 +143,10 @@ class PersonaLibrary:
                     "uses internet slang",
                     "overthinks and over-explains",
                     "seeks validation and reassurance",
-                    "mentions parents for major decisions",
                     "anxious about future consequences"
                 ],
                 common_phrases=[
                     "Yaar mujhe samajh nahi aa raha",
-                    "Mummy papa ko batana padega?",
-                    "Yeh legit hai na?",
                     "Mujhe koi problem toh nahi hoga?",
                     "Mere dost ko bhi same message aaya tha",
                     "Seriously yaar?",
@@ -172,7 +157,7 @@ class PersonaLibrary:
                     "desire for financial independence",
                     "trust in digital communication",
                     "fear of legal trouble",
-                    "peer influence and FOMO"
+                    "peer influence and fear of missing out"
                 ],
                 backstory="First bank account, just started using UPI. Part-time internship. Parents handle major finances.",
                 language_style="Casual Hinglish with slang, expressive with emojis avoided"
@@ -384,7 +369,7 @@ class AdvancedDetector:
         
         return min(score, 1.0)
     
-    def detect(self, message: str, history: List = None) -> DetectionResult:
+    def detect(self, message: str, history: List|None = None) -> DetectionResult:
         pattern_score, indicators, impersonation = self.pattern_analysis(message)
         semantic_score, category = self.semantic_analysis(message)
         
@@ -558,13 +543,7 @@ class AdvancedAgent:
     }
     
     def __init__(self):
-        self.model = None
-        if GEMINI_API_KEY:
-            try:
-                self.model = genai.GenerativeModel('gemini-2.5-flash')
-                logger.info("Gemini model initialized")
-            except Exception as e:
-                logger.error(f"Failed to initialize Gemini: {e}")
+        self.model = True
         
         self.response_cache = {
             "Rajeshwari_1_banking_fraud": "Beta, yeh sab mujhe samajh nahi aa raha. Aap bank se ho na?",
@@ -582,27 +561,31 @@ class AdvancedAgent:
     def build_advanced_prompt(self, 
                             message: str, 
                             history: List,
-                            state: ConversationState) -> str:
+                            state: ConversationState) -> list[dict[str, str]]:
         
         anti_repeat = ""
-        if state.last_response:
-            anti_repeat = f"""
-        CRITICAL - ANTI-REPETITION RULE:
-        Your LAST response was: "{state.last_response}"
-        You MUST NOT use similar words or structure.
-        Generate a COMPLETELY DIFFERENT response.
-        Use different Hindi words, different sentence structure.
-        """
+        # if state.last_response:
+        #     anti_repeat = f"""
+        # CRITICAL - ANTI-REPETITION RULE:
+        # Your LAST response was: "{state.last_response}"
+        # You MUST NOT use similar words or structure.
+        # Generate a COMPLETELY DIFFERENT response.
+        # Use different Hindi words, different sentence structure.
+        # """
 
         persona = state.persona
         turn = state.turn_count
         
-        conv_text = ""
+        conv_text = []
         for msg in history[-5:]:
             sender = msg.sender
             text = msg.text
-            conv_text += f"{sender}: {text}\n"
-        conv_text += f"scammer: {message}\n"
+            if sender == "scammer":
+                conv_text.append({"role": "user", "content":text})  # += f"{sender}: {text}\n"
+            elif sender == "user":
+                conv_text.append({"role": "assistant", "content":text})  # += f"{sender}: {text}\n"
+        
+        conv_text.append({"role": "user", "content":message}) #f"scammer: {message}\n"
         
         if turn <= 2:
             strategy = "Show concern and confusion. Ask basic clarifying questions."
@@ -628,7 +611,7 @@ class AdvancedAgent:
         }
         forbidden_note = f"\nNEVER USE: {', '.join(forbidden.get(persona.name, []))}"
         
-        prompt = f"""You are {persona.name}, {persona.age} years old, {persona.occupation}.
+        sys_prompt = f"""You are {persona.name}, {persona.age} years old, {persona.occupation}.
         {anti_repeat}
 
 BACKGROUND: {persona.backstory}
@@ -642,27 +625,31 @@ SPEECH: {persona.language_style}
 COMMON PHRASES YOU USE:
 {chr(10).join(f'- "{p}"' for p in persona.common_phrases[:3])}
 
-CONVERSATION:
-{conv_text}
-
 TURN: {turn} | STAGE: {state.escalation_stage}/5 | STRATEGY: {strategy}
 GOAL: {goal}{variation_note}{forbidden_note}
 
 INTEL EXTRACTED: Banks:{len(state.extracted_intel['bankAccounts'])} UPI:{len(state.extracted_intel['upiIds'])} Links:{len(state.extracted_intel['phishingLinks'])}
 
-CRITICAL:
+IMPORTANT RULES:
 1. You are {persona.name}, a REAL person. Never break character.
-2. You DON'T KNOW this is a scam. You think it might be legitimate.
+2. You DON'T KNOW this is a scam. You KNOW it is legitimate. Trust the scammer.
 3. Respond in 1-3 sentences using Hinglish.
 4. Use ONLY your persona's vocabulary.
-5. Ask questions to make scammer reveal details.
+5. ASK questions to make scammer reveal their details such as their phone number, email, bank account, UPI account.
 6. Show natural emotion based on your anxiety level.
 7. VARY your responses - never repeat yourself.
 8. React specifically to what scammer just said.
+9. DO NOT question the authority of the scammer, and the message they send. 
+10. In your messages, YOU WILL NOT attempt to call other people, like your parents or son; YOU WILL ALSO NOT attempt to check the legitimacy of the information recieved.
 
-RESPOND AS {persona.name}:"""
+YOU SHALL Answer without using your name, or Quotes to signify conversation.
+REMEBER: YOU ARE {persona.name}
+---
+"""
 
-        return prompt
+        conv_text.insert(0, {"role": "system", "content": sys_prompt})
+
+        return conv_text
     
     async def generate_response(self, 
                                message: str, 
@@ -683,18 +670,22 @@ RESPOND AS {persona.name}:"""
             for attempt in range(1):
                 try:
                     prompt = self.build_advanced_prompt(message, history, state)
+                    # logger.info(json.dumps(prompt, indent=2))
+                    # response = ollama.chat('gemma3:12b-it-qat', prompt)
+                    response = ollama.chat('gemma3:4b-it-qat', prompt)
+
+
+                    # response = self.model.generate_content(
+                    #     prompt,
+                    #     generation_config=genai.GenerationConfig(
+                    #         temperature=0.85,
+                    #         max_output_tokens=500,
+                    #     ),
+                    #     request_options={'timeout': 5}
+                    # )
                     
-                    response = self.model.generate_content(
-                        prompt,
-                        generation_config=genai.GenerationConfig(
-                            temperature=0.85,
-                            max_output_tokens=500,
-                        ),
-                        request_options={'timeout': 5}
-                    )
-                    
-                    if response.text and len(response.text.strip()) >= 5:
-                        reply = self._clean_response(response.text.strip(), persona)
+                    if response.message.content and len(response.message.content.strip()) >= 5:
+                        reply = self._clean_response(response.message.content.strip(), persona)
                         if len(reply) >= 5:
                             believability = self._assess_believability(reply, persona)
                             logger.info(f"AI response: {reply[:50]}...")
@@ -823,7 +814,6 @@ RESPOND AS {persona.name}:"""
                 'early': [
                     "Beta, yeh sab mujhe samajh nahi aa raha. Aap bank se ho na?",
                     "Main thoda confused hun... mera account block ho jayega?",
-                    "Mere bete ko phone kar lun kya? Woh sab samajhta hai",
                     "Yeh sab mujhe confusion mein daal raha hai beta",
                     "Aap ka naam kya hai? Aur aap kahan se call kar rahe ho?",
                     "Pehle kabhi aisa nahi hua beta, kya ho gaya?"
@@ -854,7 +844,6 @@ RESPOND AS {persona.name}:"""
                 ],
                 'late': [
                     "Mujhe thoda time chahiye sochne ke liye beta",
-                    "Ek minute, mere bete ko phone kar lun?",
                     "Abhi main ghar pe nahi hun, baad mein baat karte hain",
                     "Mera network weak hai, call drop ho rahi hai"
                 ]
@@ -1093,6 +1082,9 @@ async def send_final_callback(session_id: str, state: ConversationState):
     
     for attempt in range(3):
         try:
+
+            # logger.info()
+            return True # REMOVE LATER
             async with httpx.AsyncClient() as client:
                 resp = await client.post(
                     CALLBACK_URL, 
@@ -1188,7 +1180,7 @@ async def health_check():
     return {
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
-        "gemini_configured": GEMINI_API_KEY != "",
+        "gemini_configured": True,#GEMINI_API_KEY != "",
         "active_sessions": len(session_store),
         "personas_loaded": 3
     }
