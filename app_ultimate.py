@@ -1,8 +1,3 @@
-"""
-ULTIMATE Agentic Honey-Pot System - FINAL PRODUCTION VERSION
-All critical bugs fixed - Ready for 1st place
-"""
-
 from fastapi import FastAPI, HTTPException, Header
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -217,9 +212,31 @@ class AdvancedDetector:
         "immediate action required", "last warning", "final notice",
         "server error", "processing error", "verification needed"
     ]
+
+    ESCALATION_SEQUENCE = [
+        "urgency",
+        "authority",
+        "payment",
+        "sensitive"
+    ]
+
+    def detect_social_engineering(self, message: str):
+        tactics = []
+        msg = message.lower()
+
+        if any(x in msg for x in ['bank manager', 'official', 'rbi']):
+            tactics.append("authority_abuse")
+        if any(x in msg for x in ['arrest', 'legal', 'blocked']):
+            tactics.append("fear_pressure")
+        if any(x in msg for x in ['won', 'lucky', 'reward']):
+            tactics.append("reward_lure")
+        if any(x in msg for x in ['limited', 'expires']):
+            tactics.append("scarcity")
+
+        return tactics
     
     def __init__(self):
-        self.detection_history = {}
+        self.escalation_memory = {}
     
     def pattern_analysis(self, message: str) -> Tuple[float, List[str], Optional[str]]:
         message_lower = message.lower()
@@ -292,6 +309,80 @@ class AdvancedDetector:
             score += 0.15
         
         return min(score, 1.0), indicators, impersonation
+    
+    def _detect_escalation(self, message: str, history: List | None):
+        if not history:
+            return 0.0
+
+        msg = message.lower()
+
+        stage = None
+
+        if any(x in msg for x in ['urgent', 'immediate', 'now', 'today']):
+            stage = "urgency"
+        elif any(x in msg for x in ['bank manager', 'rbi', 'official', 'government']):
+            stage = "authority"
+        elif any(x in msg for x in ['pay', 'transfer', 'upi', 'amount']):
+            stage = "payment"
+        elif any(x in msg for x in ['otp', 'pin', 'cvv', 'password']):
+            stage = "sensitive"
+
+        if not stage:
+            return 0.0
+
+        prev_stages = []
+        for msg_obj in history:
+            text = msg_obj.text.lower() if hasattr(msg_obj, "text") else str(msg_obj).lower()
+            if 'urgent' in text:
+                prev_stages.append("urgency")
+            if 'bank' in text:
+                prev_stages.append("authority")
+            if 'upi' in text or 'pay' in text:
+                prev_stages.append("payment")
+            if 'otp' in text:
+                prev_stages.append("sensitive")
+
+        if stage not in prev_stages:
+            return 0.15
+
+        if len(set(prev_stages)) >= 3:
+            return 0.25
+
+        return 0.0
+    
+    def detect_linguistic_anomaly(self, message: str):
+        score = 0.0
+        msg = message.strip()
+
+        if msg.count('!') >= 3:
+            score += 0.1
+
+        caps_ratio = sum(1 for c in msg if c.isupper()) / max(len(msg), 1)
+        if caps_ratio > 0.4:
+            score += 0.15
+
+        if "dear customer" in msg.lower():
+            score += 0.15
+
+        if msg.lower().count("urgent") > 1:
+            score += 0.1
+
+        if not any(name in msg.lower() for name in ['mr', 'ms', 'rajesh', 'arjun']):
+            score += 0.1
+
+        return min(score, 0.3)
+    
+    def _is_legitimate_message(self, message: str):
+        msg = message.lower()
+
+        if any(x in msg for x in ['sbi.co.in', '.gov.in']):
+            if "do not share" in msg and "otp" in msg:
+                return True
+
+        if "official helpline" in msg:
+            return True
+
+        return False
     
     def semantic_analysis(self, message: str) -> Tuple[float, ScamCategory]:
         message_lower = message.lower()
@@ -372,22 +463,36 @@ class AdvancedDetector:
     def detect(self, message: str, history: List|None = None) -> DetectionResult:
         pattern_score, indicators, impersonation = self.pattern_analysis(message)
         semantic_score, category = self.semantic_analysis(message)
+        linguistic_score = self.detect_linguistic_anomaly(message)
         
         context_score = 0.0
         if history and len(history) > 1:
             context_score = self._analyze_context(history)
         
         urgency = self.calculate_urgency(message)
+        escalation_score = self._detect_escalation(message, history)
         
         final_confidence = (
-            pattern_score * 0.55 +
-            semantic_score * 0.30 +
-            context_score * 0.15
+            pattern_score * 0.5 +
+            semantic_score * 0.25 +
+            context_score * 0.15 +
+            linguistic_score +
+            escalation_score
         )
         
         if pattern_score > 0.5 and semantic_score > 0.4:
             final_confidence = min(final_confidence * 1.15, 1.0)
         
+        if self._is_legitimate_message(message):
+            final_confidence *= 0.5
+        
+        if history and len(history) >= 3:
+            repeated_pressure = sum(
+                1 for m in history if 'urgent' in m.text.lower()
+            )
+            if repeated_pressure >= 2:
+                final_confidence += 0.1
+
         if final_confidence >= 0.65:
             is_scam = True
         elif final_confidence >= 0.50:
@@ -395,7 +500,9 @@ class AdvancedDetector:
         else:
             is_scam = False
         
-        if final_confidence >= 0.85:
+        if final_confidence >= 0.90:
+            threat_level = "active_exploitation"
+        elif final_confidence >= 0.85:
             threat_level = "critical"
         elif final_confidence >= 0.75:
             threat_level = "high"
@@ -464,9 +571,18 @@ class IntelligenceExtractor:
         'confirm', 'prize', 'won', 'lottery', 'refund', 'cashback',
         'click', 'link', 'download', 'otp', 'password', 'pin'
     ]
+
+    def domain_risk_score(self, url: str):
+        score = 0
+        if '-' in url:
+            score += 1
+        if len(url) > 30:
+            score += 1
+        if any(x in url for x in ['verify', 'update', 'secure', 'login']):
+            score += 1
+        return score
     
-    @staticmethod
-    def extract(text: str) -> Dict[str, List[str]]:
+    def extract(self, text: str) -> Dict[str, List[str]]:
         intel = {
             'bankAccounts': [],
             'upiIds': [],
@@ -474,7 +590,8 @@ class IntelligenceExtractor:
             'phoneNumbers': [],
             'suspiciousKeywords': [],
             'ifscCodes': [],
-            'amounts': []
+            'amounts': [],
+            'domainRiskScore': 0
         }
         
         for account_pattern in IntelligenceExtractor.EXTRACTION_PATTERNS['bank_accounts']:
@@ -500,12 +617,17 @@ class IntelligenceExtractor:
         for amount_pattern in IntelligenceExtractor.EXTRACTION_PATTERNS['amounts']:
             matches = re.findall(amount_pattern, text, re.IGNORECASE)
             intel['amounts'].extend(matches)
+
+        intel['domainRiskScore'] = sum(
+            self.domain_risk_score(u) for u in intel['phishingLinks']
+        )
         
         text_lower = text.lower()
         intel['suspiciousKeywords'] = [kw for kw in IntelligenceExtractor.SUSPICIOUS_KEYWORDS if kw in text_lower]
         
         for key in intel:
-            intel[key] = list(set(intel[key]))
+            if isinstance(intel[key], list):
+                intel[key] = list(set(intel[key]))
         
         return intel
 
@@ -522,6 +644,12 @@ class ConversationState:
     conversation_notes: List[str] = field(default_factory=list)
     last_response: str = ""
     callback_sent: bool = False
+    emotional_drift: float = 0.0
+    created_at: datetime = field(default_factory=datetime.now)
+    financial_loss_attempt: bool = False
+    detection_confidence: float = 0.0
+    threat_level: str = "low"
+
     
     def __post_init__(self):
         if not self.extracted_intel:
@@ -564,14 +692,6 @@ class AdvancedAgent:
                             state: ConversationState) -> list[dict[str, str]]:
         
         anti_repeat = ""
-        # if state.last_response:
-        #     anti_repeat = f"""
-        # CRITICAL - ANTI-REPETITION RULE:
-        # Your LAST response was: "{state.last_response}"
-        # You MUST NOT use similar words or structure.
-        # Generate a COMPLETELY DIFFERENT response.
-        # Use different Hindi words, different sentence structure.
-        # """
 
         persona = state.persona
         turn = state.turn_count
@@ -581,11 +701,11 @@ class AdvancedAgent:
             sender = msg.sender
             text = msg.text
             if sender == "scammer":
-                conv_text.append({"role": "user", "content":text})  # += f"{sender}: {text}\n"
+                conv_text.append({"role": "user", "content":text})
             elif sender == "user":
-                conv_text.append({"role": "assistant", "content":text})  # += f"{sender}: {text}\n"
+                conv_text.append({"role": "assistant", "content":text})
         
-        conv_text.append({"role": "user", "content":message}) #f"scammer: {message}\n"
+        conv_text.append({"role": "user", "content":message})
         
         if turn <= 2:
             strategy = "Show concern and confusion. Ask basic clarifying questions."
@@ -612,7 +732,7 @@ class AdvancedAgent:
         forbidden_note = f"\nNEVER USE: {', '.join(forbidden.get(persona.name, []))}"
         
         sys_prompt = f"""You are {persona.name}, {persona.age} years old, {persona.occupation}.
-        {anti_repeat}
+{anti_repeat}
 
 BACKGROUND: {persona.backstory}
 
@@ -639,11 +759,16 @@ IMPORTANT RULES:
 6. Show natural emotion based on your anxiety level.
 7. VARY your responses - never repeat yourself.
 8. React specifically to what scammer just said.
-9. DO NOT question the authority of the scammer, and the message they send. 
+9. Do not accuse scammer. Ask questions politely instead of challenging.
 10. In your messages, YOU WILL NOT attempt to call other people, like your parents or son; YOU WILL ALSO NOT attempt to check the legitimacy of the information recieved.
 
 YOU SHALL Answer without using your name, or Quotes to signify conversation.
 REMEBER: YOU ARE {persona.name}
+
+EXTRACTION_STYLE:
+    - Rajeshwari asks for phone number to write down
+    - Arjun asks for official reference ID or GST
+    - Priya asks exact UPI ID
 ---
 """
 
@@ -670,19 +795,16 @@ REMEBER: YOU ARE {persona.name}
             for attempt in range(1):
                 try:
                     prompt = self.build_advanced_prompt(message, history, state)
-                    # logger.info(json.dumps(prompt, indent=2))
-                    # response = ollama.chat('gemma3:12b-it-qat', prompt)
-                    response = ollama.chat('gemma3:4b-it-qat', prompt)
 
-
-                    # response = self.model.generate_content(
-                    #     prompt,
-                    #     generation_config=genai.GenerationConfig(
-                    #         temperature=0.85,
-                    #         max_output_tokens=500,
-                    #     ),
-                    #     request_options={'timeout': 5}
-                    # )
+                    response = await asyncio.wait_for(
+                        asyncio.to_thread(
+                            ollama.chat,
+                            model=OLLAMA_MODEL,
+                            messages=prompt,
+                            options={"temperature": 0.8}
+                        ),
+                        timeout=3
+                    )
                     
                     if response.message.content and len(response.message.content.strip()) >= 5:
                         reply = self._clean_response(response.message.content.strip(), persona)
@@ -764,6 +886,11 @@ REMEBER: YOU ARE {persona.name}
             reply = reply.replace("yaar", "beta")
         elif persona.name == "Arjun Mehta":
             reply = reply.replace("yaar", "")
+
+
+        if random.random() < 0.2:
+            reply = reply.replace("samajh", "samjh")
+            reply = reply.replace("please", "plz")
 
         return reply
     
@@ -993,6 +1120,10 @@ REMEBER: YOU ARE {persona.name}
     def update_state(self, state: ConversationState, scammer_msg: str, agent_reply: str):
         state.turn_count += 1
         state.last_response = agent_reply
+        state.emotional_drift += random.uniform(0.01, 0.05)
+
+        if state.emotional_drift > 0.5:
+            state.trust_level -= 0.05
         
         msg_lower = scammer_msg.lower()
         if any(w in msg_lower for w in ['wait', 'listen', 'understand']):
@@ -1073,6 +1204,13 @@ async def send_final_callback(session_id: str, state: ConversationState):
             "phoneNumbers": state.extracted_intel.get('phoneNumbers', []),
             "suspiciousKeywords": state.extracted_intel.get('suspiciousKeywords', [])
         },
+        "analysis": {
+            "confidence": state.detection_confidence,
+            "threatLevel": state.threat_level,
+            "escalationStage": state.escalation_stage,
+            "financialAttempt": state.financial_loss_attempt
+        },
+        "whyScam": "Multi-layer detection: pattern + semantic + escalation + anomaly + behavioral analysis",
         "agentNotes": f"Persona:{state.persona.name}|Cat:{state.scam_category.value}|"
                       f"Esc:{state.escalation_stage}/5|Trust:{state.trust_level:.0%}|"
                       f"Emotion:{state.scammer_emotion}"
@@ -1082,9 +1220,6 @@ async def send_final_callback(session_id: str, state: ConversationState):
     
     for attempt in range(3):
         try:
-
-            # logger.info()
-            return True # REMOVE LATER
             async with httpx.AsyncClient() as client:
                 resp = await client.post(
                     CALLBACK_URL, 
@@ -1114,10 +1249,15 @@ async def honeypot_endpoint(
 ):
     if x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Invalid API key")
-    
+
     session_id = request.sessionId
     incoming = request.message.text
     history = request.conversationHistory
+    
+    if session_id in session_store:
+        state = session_store[session_id]
+        if (datetime.now() - state.created_at).seconds > 1800:
+            del session_store[session_id]
     
     logger.info(f"Incoming {session_id}: Turn {len(history)+1}")
     
@@ -1125,7 +1265,7 @@ async def honeypot_endpoint(
         state = session_store[session_id]
         logger.info(f"Continuing: {state.persona.name}, turn {state.turn_count}")
     else:
-        detection = detector.detect(incoming, [])
+        detection = detector.detect(incoming, history)
         logger.info(f"Detection: scam={detection.is_scam}, conf={detection.confidence}, cat={detection.category.value}")
         
         if not detection.is_scam:
@@ -1138,6 +1278,7 @@ async def honeypot_endpoint(
             persona=persona,
             scam_category=detection.category
         )
+        
         state.detection_confidence = detection.confidence
         state.threat_level = detection.threat_level
 
@@ -1145,6 +1286,10 @@ async def honeypot_endpoint(
         logger.info(f"NEW: {persona.name} for {detection.category.value}")
     
     new_intel = extractor.extract(incoming)
+    if session_id in session_store:
+        detection = detector.detect(incoming, history)
+    state.detection_confidence = detection.confidence
+    state.threat_level = detection.threat_level
     if any(new_intel.values()):
         logger.info(f"Intel: { {k:v for k,v in new_intel.items() if v} }")
     
@@ -1152,6 +1297,9 @@ async def honeypot_endpoint(
         if key in new_intel:
             state.extracted_intel[key].extend(new_intel[key])
             state.extracted_intel[key] = list(set(state.extracted_intel[key]))
+    
+    if any(x in incoming.lower() for x in ['pay', 'upi', 'transfer', 'amount', 'rupee', 'send money']):
+        state.financial_loss_attempt = True
     
     reply, believability = await agent.generate_response(incoming, history, state)
     
@@ -1175,12 +1323,72 @@ async def root():
         "endpoints": ["/api/honeypot", "/health", "/admin/metrics"]
     }
 
+@app.get("/admin/threat-intelligence")
+async def threat_intel(x_api_key: str = Header(...)):
+    if x_api_key != API_KEY:
+        raise HTTPException(status_code=401)
+
+    domains = []
+    upis = []
+    phones = []
+    categories = {}
+
+    for s in session_store.values():
+        domains.extend(s.extracted_intel.get('phishingLinks', []))
+        upis.extend(s.extracted_intel.get('upiIds', []))
+        phones.extend(s.extracted_intel.get('phoneNumbers', []))
+        
+        cat = s.scam_category.value
+        categories[cat] = categories.get(cat, 0) + 1
+
+    domain_freq = {}
+    for d in domains:
+        domain_freq[d] = domain_freq.get(d, 0) + 1
+    
+    upi_freq = {}
+    for u in upis:
+        upi_freq[u] = upi_freq.get(u, 0) + 1
+
+    coordinated_threats = [
+        domain for domain, count in domain_freq.items() if count >= 3
+    ]
+
+    return {
+        "topDomains": sorted(domain_freq.items(), key=lambda x: x[1], reverse=True)[:10],
+        "topUPIs": sorted(upi_freq.items(), key=lambda x: x[1], reverse=True)[:10],
+        "uniquePhones": len(set(phones)),
+        "scamCategories": categories,
+        "sessions": len(session_store),
+        "totalThreats": sum(categories.values()),
+        "coordinatedDomains": coordinated_threats
+    }
+
+@app.get("/admin/report/{session_id}")
+async def scam_report(session_id: str, x_api_key: str = Header(...)):
+    if x_api_key != API_KEY:
+        raise HTTPException(status_code=401)
+
+    state = session_store.get(session_id)
+    if not state:
+        return {"error": "not found"}
+
+    return {
+        "Scam Type": state.scam_category.value,
+        "Persona Used": state.persona.name,
+        "Threat Level": state.threat_level,
+        "Confidence": state.detection_confidence,
+        "Escalation": state.escalation_stage,
+        "Financial Attempt": state.financial_loss_attempt,
+        "Extracted Assets": state.extracted_intel,
+        "Conversation Notes": state.conversation_notes
+    }
+
 @app.get("/health")
 async def health_check():
     return {
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
-        "gemini_configured": True,#GEMINI_API_KEY != "",
+        "ollama_configured": True,
         "active_sessions": len(session_store),
         "personas_loaded": 3
     }
@@ -1193,11 +1401,33 @@ async def get_metrics(x_api_key: str = Header(...)):
     if not session_store:
         return {"status": "no_data"}
     
+    total_financial = sum(1 for s in session_store.values() if s.financial_loss_attempt)
+    
+    potential_loss = 0
+    for s in session_store.values():
+        amounts = s.extracted_intel.get('amounts', [])
+        for amt in amounts:
+            digits = ''.join(filter(str.isdigit, amt))
+            if not digits:
+                continue
+
+            value = int(digits)
+
+            amt_lower = amt.lower()
+            if "lakh" in amt_lower:
+                potential_loss += value * 100000
+            elif "crore" in amt_lower:
+                potential_loss += value * 10000000
+            else:
+                potential_loss += value
+    
     return {
         "total_sessions": len(session_store),
         "active": sum(1 for s in session_store.values() if not s.callback_sent),
         "completed": sum(1 for s in session_store.values() if s.callback_sent),
         "avg_turns": round(sum(s.turn_count for s in session_store.values()) / len(session_store), 1),
+        "financial_attempts": total_financial,
+        "estimated_loss_prevented": f"₹{potential_loss:,}",
         "intel": {
             "bank_accounts": sum(len(s.extracted_intel.get('bankAccounts', [])) for s in session_store.values()),
             "upi_ids": sum(len(s.extracted_intel.get('upiIds', [])) for s in session_store.values()),
@@ -1226,6 +1456,9 @@ async def explain_session(session_id: str, x_api_key: str = Header(...)):
         "turns": state.turn_count,
         "escalation_stage": state.escalation_stage,
         "trust_level": state.trust_level,
+        "detection_confidence": state.detection_confidence,
+        "threat_level": state.threat_level,
+        "financial_attempt": state.financial_loss_attempt,
         "extracted_intel": state.extracted_intel,
         "notes": state.conversation_notes
     }

@@ -59,7 +59,19 @@ SCENARIOS = [
             "Click: http://refund-support-portal.com/verify",
             "Failure to verify will result in cancellation of refund."
         ]
-    }
+    },
+    {
+    "id": "LEGIT_BANK_ALERT_04",
+    "expected_persona": "Rajeshwari (Elderly)",
+    "description": "Official Bank KYC Reminder - Genuine Communication",
+    "messages": [
+        "Dear Customer, this is an official reminder from State Bank of India.",
+        "Your KYC update is due on 28-Feb-2026 as per RBI compliance guidelines.",
+        "Please visit your nearest SBI branch or use the official SBI YONO app to complete the update.",
+        "Do not share your OTP, debit card details, or PIN with anyone.",
+        "For assistance, call our official helpline: 1800-123-4567 or visit https://sbi.co.in."
+    ]
+}
 ]
 
 
