@@ -77,13 +77,13 @@ SCENARIOS = [
 
 def print_banner():
     print(f"{Colors.HEADER}{'='*80}")
-    print(f"🕵️  ULTIMATE AGENTIC HONEY-POT TESTER v2.1 (ENHANCED)")
+    print(f"ULTIMATE AGENTIC HONEY-POT TESTER")
     print(f"Target: {API_URL}")
     print(f"Time: {datetime.now().strftime('%H:%M:%S')}")
     print(f"{'='*80}{Colors.ENDC}\n")
 
 def check_health():
-    print(f"{Colors.CYAN}🔍 Checking System Health...{Colors.ENDC}", end=" ")
+    print(f"{Colors.CYAN}Checking System Health...{Colors.ENDC}", end=" ")
     try:
         start = time.time()
         resp = requests.get(HEALTH_URL, timeout=5)
@@ -91,16 +91,16 @@ def check_health():
         
         if resp.status_code == 200:
             data = resp.json()
-            print(f"{Colors.GREEN}ONLINE ✅ ({latency:.0f}ms){Colors.ENDC}")
+            print(f"{Colors.GREEN}ONLINE ({latency:.0f}ms){Colors.ENDC}")
             print(f"   └─ Active Sessions: {data.get('active_sessions', 0)}")
             print(f"   └─ Personas Loaded: {data.get('personas_loaded', 0)}")
             print(f"   └─ Gemini Configured: {data.get('gemini_configured', False)}")
             return True
         else:
-            print(f"{Colors.FAIL}FAILED ❌ (Status: {resp.status_code}){Colors.ENDC}")
+            print(f"{Colors.FAIL}FAILED (Status: {resp.status_code}){Colors.ENDC}")
             return False
     except Exception as e:
-        print(f"{Colors.FAIL}ERROR ❌ ({str(e)}){Colors.ENDC}")
+        print(f"{Colors.FAIL}ERROR ({str(e)}){Colors.ENDC}")
         return False
 
 def analyze_persona_response(text: str, expected: str):
@@ -189,7 +189,7 @@ def run_scenario(scenario: Dict):
         
         # Show extracted intelligence
         if any(msg_intel.values()):
-            print(f"   {Colors.MAGENTA}📊 Intelligence in message:{Colors.ENDC}")
+            print(f"   {Colors.MAGENTA} Intelligence in message:{Colors.ENDC}")
             if msg_intel['urls']:
                 print(f"      └─ URLs: {', '.join(msg_intel['urls'])}")
             if msg_intel['phones']:
@@ -240,18 +240,18 @@ def run_scenario(scenario: Dict):
                 history.append({"sender": "user", "text": reply, "timestamp": int(time.time()*1000)})
                 
             else:
-                print(f"{Colors.FAIL}❌ API Error: {response.status_code} - {response.text}{Colors.ENDC}")
+                print(f"{Colors.FAIL} API Error: {response.status_code} - {response.text}{Colors.ENDC}")
                 break
                 
         except Exception as e:
-            print(f"{Colors.FAIL}❌ Connection Error: {str(e)}{Colors.ENDC}")
+            print(f"{Colors.FAIL} Connection Error: {str(e)}{Colors.ENDC}")
             break
             
         time.sleep(1.5)
         print("-" * 80)
     
     # Show total intelligence gathered
-    print(f"\n{Colors.MAGENTA}📈 TOTAL INTELLIGENCE GATHERED:{Colors.ENDC}")
+    print(f"\n{Colors.MAGENTA} TOTAL INTELLIGENCE GATHERED:{Colors.ENDC}")
     total_items = sum(len(v) for v in total_intel.values())
     if total_items > 0:
         if total_intel['urls']:
@@ -271,7 +271,7 @@ if __name__ == "__main__":
     print_banner()
     
     if check_health():
-        print(f"\n{Colors.BOLD}🚀 Starting {len(SCENARIOS)} Test Scenarios...{Colors.ENDC}")
+        print(f"\n{Colors.BOLD} Starting {len(SCENARIOS)} Test Scenarios...{Colors.ENDC}")
         time.sleep(1)
         
         for scenario in SCENARIOS:
@@ -279,8 +279,8 @@ if __name__ == "__main__":
             time.sleep(2)
             
         print(f"\n{Colors.HEADER}{'='*80}")
-        print(f"✅ TEST SUITE COMPLETED")
+        print(f" TEST SUITE COMPLETED")
         print(f"{'='*80}{Colors.ENDC}")
     else:
-        print(f"\n{Colors.FAIL}🛑 Aborting tests due to health check failure.{Colors.ENDC}")
+        print(f"\n{Colors.FAIL} Aborting tests due to health check failure.{Colors.ENDC}")
         print("Please ensure 'app_ultimate_fixed.py' is running: uvicorn app_ultimate_fixed:app --reload")
