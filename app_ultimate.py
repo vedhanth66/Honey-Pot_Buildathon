@@ -220,6 +220,12 @@ class AdvancedDetector:
         "sensitive"
     ]
 
+    LEGITIMATE_INDICATORS = [
+        "do not share", "official helpline", "visit branch", 
+        "official app", "rbi compliance", "never share otp",
+        "never share pin", "official website", ".gov.in", ".co.in"
+    ]
+
     def detect_social_engineering(self, message: str):
         tactics = []
         msg = message.lower()
@@ -234,9 +240,6 @@ class AdvancedDetector:
             tactics.append("scarcity")
 
         return tactics
-    
-    def __init__(self):
-        self.escalation_memory = {}
     
     def pattern_analysis(self, message: str) -> Tuple[float, List[str], Optional[str]]:
         message_lower = message.lower()
@@ -372,17 +375,40 @@ class AdvancedDetector:
 
         return min(score, 0.3)
     
-    def _is_legitimate_message(self, message: str):
+    def _is_legitimate_message(self, message: str) -> bool:
         msg = message.lower()
 
-        if any(x in msg for x in ['sbi.co.in', '.gov.in']):
-            if "do not share" in msg and "otp" in msg:
-                return True
+        legit_markers = [
+            "official helpline",
+            "visit your nearest branch",
+            "visit branch",
+            "sbi yono",
+            "rbi compliance",
+            "official reminder",
+            "never share otp",
+            "never share pin",
+            "do not share your otp",
+            "do not share otp",
+        ]
 
-        if "official helpline" in msg:
+        if any(marker in msg for marker in legit_markers):
+            return True
+
+        trusted_domains = [
+            "sbi.co.in",
+            "icici.com",
+            "hdfc.com",
+            ".gov.in"
+        ]
+
+        if any(domain in msg for domain in trusted_domains):
+            return True
+
+        if re.search(r'1800[-\s]?\d{3}[-\s]?\d{4}', msg):
             return True
 
         return False
+
     
     def semantic_analysis(self, message: str) -> Tuple[float, ScamCategory]:
         message_lower = message.lower()
@@ -397,10 +423,16 @@ class AdvancedDetector:
             ScamCategory.REFUND: 0.0
         }
         
-        lottery_words = ['won', 'winner', 'win', 'congratulations', 'congrats', 'lottery', 'lucky draw', 'lucky', 'prize', 'lakh', 'lakhs', 'crore', 'crores', 'kbc', 'draw', 'selected', 'claim']
+        lottery_words = ['won', 'winner', 'win', 'congratulations', 'congrats', 'lottery', 
+                        'lucky draw', 'lucky', 'prize', 'lakh', 'lakhs', 'crore', 'crores', 
+                        'kbc', 'draw', 'selected', 'claim', 'reward']
         lottery_count = sum(1 for word in lottery_words if word in message_lower)
         if lottery_count > 0:
             category_scores[ScamCategory.LOTTERY] += min(lottery_count * 0.30, 0.80)
+            
+            strong_lottery = ['congratulations', 'won', 'prize', 'lucky draw', 'kbc']
+            if sum(1 for w in strong_lottery if w in message_lower) >= 2:
+                category_scores[ScamCategory.LOTTERY] += 0.15
         
         refund_words = ['refund', 'cashback', 'reversal', 'credit back', 'approved', 'initiated', 'failed', 'transaction failed', 'server error', 'processing error']
         refund_count = sum(1 for word in refund_words if word in message_lower)
@@ -476,7 +508,7 @@ class AdvancedDetector:
             pattern_score * 0.5 +
             semantic_score * 0.25 +
             context_score * 0.15 +
-            linguistic_score +
+            linguistic_score * 0.2 +
             escalation_score
         )
         
@@ -484,7 +516,7 @@ class AdvancedDetector:
             final_confidence = min(final_confidence * 1.15, 1.0)
         
         if self._is_legitimate_message(message):
-            final_confidence *= 0.5
+            final_confidence *= 0.3
         
         if history and len(history) >= 3:
             repeated_pressure = sum(
@@ -555,7 +587,7 @@ class IntelligenceExtractor:
             r'\b[6-9]\d{9}\b'
         ],
         'urls': [
-            r'https?://[^\s<>\"{}|\\^`\[\]]+'
+            r'https?://[^\s<>\"{}|\\^`\[\]]+[^\s<>\"{}|\\^`\[\].,]'
         ],
         'ifsc_codes': [
             r'\b[A-Z]{4}0[A-Z0-9]{6}\b'
@@ -571,6 +603,18 @@ class IntelligenceExtractor:
         'confirm', 'prize', 'won', 'lottery', 'refund', 'cashback',
         'click', 'link', 'download', 'otp', 'password', 'pin'
     ]
+
+    def normalize_phone(self, phone: str):
+        digits = re.sub(r'\D', '', phone)
+
+        if len(digits) == 10:
+            return "+91" + digits
+        if digits.startswith("91") and len(digits) == 12:
+            return "+" + digits
+        if digits.startswith("0") and len(digits) == 11:
+            return "+91" + digits[1:]
+
+        return "+" + digits
 
     def domain_risk_score(self, url: str):
         score = 0
@@ -594,9 +638,14 @@ class IntelligenceExtractor:
             'domainRiskScore': 0
         }
         
-        for account_pattern in IntelligenceExtractor.EXTRACTION_PATTERNS['bank_accounts']:
+        phone_numbers = set()
+        for account_pattern in self.EXTRACTION_PATTERNS['bank_accounts']:
             matches = re.findall(account_pattern, text)
-            intel['bankAccounts'].extend([m.replace('-', '').replace(' ', '') for m in matches])
+            for m in matches:
+                cleaned = m.replace('-', '').replace(' ', '')
+                if re.fullmatch(r'[6-9]\d{9}', cleaned):
+                    continue
+                intel['bankAccounts'].append(cleaned)
         
         for upi_pattern in IntelligenceExtractor.EXTRACTION_PATTERNS['upi_ids']:
             matches = re.findall(upi_pattern, text, re.IGNORECASE)
@@ -604,7 +653,9 @@ class IntelligenceExtractor:
         
         for phone_pattern in IntelligenceExtractor.EXTRACTION_PATTERNS['phone_numbers']:
             matches = re.findall(phone_pattern, text)
-            intel['phoneNumbers'].extend(matches)
+            for m in matches:
+                normalized = self.normalize_phone(m)
+                intel['phoneNumbers'].append(normalized)
         
         for url_pattern in IntelligenceExtractor.EXTRACTION_PATTERNS['urls']:
             matches = re.findall(url_pattern, text)
@@ -675,7 +726,7 @@ class AdvancedAgent:
         
         self.response_cache = {
             "Rajeshwari_1_banking_fraud": "Beta, yeh sab mujhe samajh nahi aa raha. Aap bank se ho na?",
-            "Rajeshwari_2_banking_fraud": "Mere bete ko phone karna padega kya? Woh sab samajhta hai.",
+            "Rajeshwari_2_banking_fraud": "Beta, mere bete ko phone karna padega kya? Woh sab samajhta hai.",
             "Priya_1_lottery_scam": "Yaar seriously? Yeh legit hai na?",
             "Priya_2_lottery_scam": "Mummy papa ko batana padega kya?",
             "Arjun_1_refund_scam": "Quick batao, meeting mein hun. Email bhej do details.",
@@ -777,9 +828,9 @@ EXTRACTION_STYLE:
         return conv_text
     
     async def generate_response(self, 
-                               message: str, 
-                               history: List,
-                               state: ConversationState) -> Tuple[str, float]:
+                            message: str, 
+                            history: List,
+                            state: ConversationState) -> Tuple[str, float]:
         
         persona = state.persona
         turn = state.turn_count + 1
@@ -792,33 +843,53 @@ EXTRACTION_STYLE:
                 return cleaned, 0.85
         
         if self.model:
-            for attempt in range(1):
-                try:
-                    prompt = self.build_advanced_prompt(message, history, state)
+            try:
+                prompt = self.build_advanced_prompt(message, history, state)
+                
+                response = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        ollama.chat,
+                        model=OLLAMA_MODEL,
+                        messages=prompt,
+                        options={"temperature": 0.8, "num_predict": 128}
+                    ),
+                    timeout=40.0
+                )
 
-                    response = await asyncio.wait_for(
-                        asyncio.to_thread(
-                            ollama.chat,
-                            model=OLLAMA_MODEL,
-                            messages=prompt,
-                            options={"temperature": 0.8}
-                        ),
-                        timeout=3
-                    )
-                    
-                    if response.message.content and len(response.message.content.strip()) >= 5:
-                        reply = self._clean_response(response.message.content.strip(), persona)
-                        if len(reply) >= 5:
-                            believability = self._assess_believability(reply, persona)
-                            logger.info(f"AI response: {reply[:50]}...")
-                            return reply, believability
-                    
-                    logger.warning(f"Empty/short response, attempt {attempt + 1}")
-                    await asyncio.sleep(0.5)
-                    
-                except Exception as e:
-                    logger.warning(f"AI error attempt {attempt + 1}: {e}")
-                    await asyncio.sleep(0.5)
+                # response = await asyncio.wait_for(
+                #     asyncio.to_thread(
+                #         ollama.chat,
+                #         model=OLLAMA_MODEL,
+                #         messages=prompt,
+                #         options={
+                #             "temperature": 0.55,
+                #             "num_predict": 80,
+                #             "top_p": 0.9
+                #         }
+                #     ),
+                #     timeout=25.0
+                # )
+
+                # options={
+                #     "temperature": 0.65,
+                #     "num_predict": 100,
+                #     "top_p": 0.9
+                # }
+                # timeout=20.0
+                
+                if response.message.content and len(response.message.content.strip()) >= 5:
+                    reply = self._clean_response(response.message.content.strip(), persona)
+                    if len(reply) >= 5:
+                        believability = self._assess_believability(reply, persona)
+                        logger.info(f"AI response: {reply[:50]}...")
+                        return reply, believability
+                
+                logger.warning("Empty/short response from Ollama")
+                
+            except asyncio.TimeoutError:
+                logger.warning("Ollama timeout after {timeout}s")
+            except Exception as e:
+                logger.error(f"Ollama error: {e}")
         
         logger.info(f"Using FALLBACK for {persona.name}")
         fallback_reply = self._persona_fallback(message, state)
@@ -829,6 +900,9 @@ EXTRACTION_STYLE:
         original = reply
         reply_lower = reply.lower()
 
+        reply = re.sub(r'</?(?:end_of_turn|start_of_turn)(?:\s+\w+)?>', '', reply)
+        reply = reply.strip()
+
         if persona.name == "Rajeshwari":
             forbidden = ['yaar', 'meeting', 'email', 'process exactly', 'client', 'office', 'dude', 'bro']
             for word in forbidden:
@@ -836,7 +910,7 @@ EXTRACTION_STYLE:
                     reply = reply.replace(word, "beta")
         
         elif persona.name == "Arjun Mehta":
-            forbidden = ['beta', 'ji', 'bete', 'yaar', 'mummy', 'papa', 'confused hun']
+            forbidden = ['beta', 'ji', 'bete', 'yaar', 'mummy', 'papa', 'confused hun', 'wait, what?']
             for word in forbidden:
                 if word in reply_lower:
                     reply = reply.replace(word, "")
@@ -1208,7 +1282,8 @@ async def send_final_callback(session_id: str, state: ConversationState):
             "confidence": state.detection_confidence,
             "threatLevel": state.threat_level,
             "escalationStage": state.escalation_stage,
-            "financialAttempt": state.financial_loss_attempt
+            "financialAttempt": state.financial_loss_attempt,
+            "socialEngineeringTechniques": getattr(state, "social_engineering", [])
         },
         "whyScam": "Multi-layer detection: pattern + semantic + escalation + anomaly + behavioral analysis",
         "agentNotes": f"Persona:{state.persona.name}|Cat:{state.scam_category.value}|"
@@ -1254,23 +1329,59 @@ async def honeypot_endpoint(
     incoming = request.message.text
     history = request.conversationHistory
     
+    detection = detector.detect(incoming, history)
+
     if session_id in session_store:
         state = session_store[session_id]
         if (datetime.now() - state.created_at).seconds > 1800:
             del session_store[session_id]
+            state = None
+    else:
+        state = None
+
+    if state is None:
+        if not detection.is_scam:
+            logger.info(f"Legitimate message detected (confidence {detection.confidence})")
+            
+            msg_lower = incoming.lower()
+            
+            if any(word in msg_lower for word in ['kyc', 'update', 'compliance', 'rbi']):
+                reply = "Thank you for the reminder. I'll visit my nearest branch this week to complete the KYC update."
+            elif any(word in msg_lower for word in ['helpline', 'customer service', 'support']):
+                reply = "Thank you for providing the official contact information. I'll reach out if I need assistance."
+            elif any(word in msg_lower for word in ['security', 'do not share', 'never share']):
+                reply = "I appreciate the security reminder. I'll make sure to keep my details private."
+            else:
+                reply = "Thank you for the information. I understand and will take appropriate action."
+            
+            return JSONResponse(content={
+                "status": "success",
+                "reply": reply,
+                "scam_detected": False
+            })
+
+        persona = PersonaSelector.select(detection.category)
+        state = ConversationState(
+            session_id=session_id,
+            persona=persona,
+            scam_category=detection.category
+        )
+        session_store[session_id] = state
+        logger.info(f"NEW: {persona.name} for {detection.category.value}")
+
+    tactics = detector.detect_social_engineering(incoming)
+    if tactics:
+        if not hasattr(state, "social_engineering"):
+            state.social_engineering = []
+        state.social_engineering.extend(tactics)
+        state.social_engineering = list(set(state.social_engineering))
     
     logger.info(f"Incoming {session_id}: Turn {len(history)+1}")
     
-    if session_id in session_store:
-        state = session_store[session_id]
-        logger.info(f"Continuing: {state.persona.name}, turn {state.turn_count}")
-    else:
-        detection = detector.detect(incoming, history)
-        logger.info(f"Detection: scam={detection.is_scam}, conf={detection.confidence}, cat={detection.category.value}")
-        
+    if state is None:
         if not detection.is_scam:
             logger.info(f"Not scam (confidence {detection.confidence})")
-            return JSONResponse(content={"status": "success", "reply": "I'm sorry, could you please explain?"})
+            return JSONResponse(content={"status": "success", "reply": "Thank you for the information. Could you please provide more details?"})
         
         persona = PersonaSelector.select(detection.category)
         state = ConversationState(
@@ -1278,18 +1389,16 @@ async def honeypot_endpoint(
             persona=persona,
             scam_category=detection.category
         )
-        
-        state.detection_confidence = detection.confidence
-        state.threat_level = detection.threat_level
-
         session_store[session_id] = state
         logger.info(f"NEW: {persona.name} for {detection.category.value}")
+    else:
+        logger.info(f"Continuing: {state.persona.name}, turn {state.turn_count}")
     
-    new_intel = extractor.extract(incoming)
-    if session_id in session_store:
-        detection = detector.detect(incoming, history)
     state.detection_confidence = detection.confidence
     state.threat_level = detection.threat_level
+    state.scam_category = detection.category
+    
+    new_intel = extractor.extract(incoming)
     if any(new_intel.values()):
         logger.info(f"Intel: { {k:v for k,v in new_intel.items() if v} }")
     
@@ -1350,7 +1459,9 @@ async def threat_intel(x_api_key: str = Header(...)):
         upi_freq[u] = upi_freq.get(u, 0) + 1
 
     coordinated_threats = [
-        domain for domain, count in domain_freq.items() if count >= 3
+        {"domain": d, "count": c}
+        for d, c in domain_freq.items()
+        if c >= 3
     ]
 
     return {
@@ -1365,6 +1476,7 @@ async def threat_intel(x_api_key: str = Header(...)):
 
 @app.get("/admin/report/{session_id}")
 async def scam_report(session_id: str, x_api_key: str = Header(...)):
+    
     if x_api_key != API_KEY:
         raise HTTPException(status_code=401)
 
@@ -1380,7 +1492,11 @@ async def scam_report(session_id: str, x_api_key: str = Header(...)):
         "Escalation": state.escalation_stage,
         "Financial Attempt": state.financial_loss_attempt,
         "Extracted Assets": state.extracted_intel,
-        "Conversation Notes": state.conversation_notes
+        "Conversation Notes": state.conversation_notes,
+        "Potential Financial Indicators": {
+            "amounts": state.extracted_intel.get("amounts", []),
+            "upiIds": state.extracted_intel.get("upiIds", [])
+        },
     }
 
 @app.get("/health")
