@@ -30,27 +30,20 @@ API_KEY = os.getenv("API_KEY", "Honey-Pot_Buildathon-123456")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma3:4b-it-qat")
 CALLBACK_URL = "https://hackathon.guvi.in/api/updateHoneyPotFinalResult"
 
-# ============================================================================
-# EDGE CASE HANDLERS
-# ============================================================================
-
 class EdgeCaseHandler:
     """Handles all edge cases before main processing"""
     
     MAX_MESSAGE_LENGTH = 2000
     MIN_MESSAGE_LENGTH = 3
     
-    # Simple cipher patterns (A=1, B=2, etc.)
     CIPHER_PATTERNS = {
         'numeric': r'^[\d\s,.-]+$',
         'repeated_numbers': r'(\d+[\s,.-]){5,}'
     }
     
-    # Greeting patterns
     GREETING_PATTERNS = r'^(hi+|hello+|hey+|namaste|hlo+|sup|hola|whatsup|wassup|yo)\s*[!.]*$'
     
-    # Homograph lookalike characters (Cyrillic/Greek mimicking Latin)
-    HOMOGRAPH_CHARS = 'аеіорсухАВЕКМНОРСТХ'  # Cyrillic lookalikes
+    HOMOGRAPH_CHARS = 'аеіорсухАВЕКМНОРСТХ'
     
     @staticmethod
     def is_empty_or_too_short(message: str) -> Tuple[bool, Optional[str]]:
@@ -59,7 +52,6 @@ class EdgeCaseHandler:
             return True, "I didn't receive any message. Could you please try again?"
         
         if len(message.strip()) <= EdgeCaseHandler.MIN_MESSAGE_LENGTH:
-            # Check if it's just punctuation
             if re.match(r'^[.,!?;:\-]+$', message.strip()):
                 return True, "I didn't quite catch that. Could you please elaborate?"
             return True, "Hello! How can I help you today?"
@@ -76,15 +68,13 @@ class EdgeCaseHandler:
     @staticmethod
     def detect_and_decode_cipher(message: str) -> Optional[str]:
         """Detect simple number substitution ciphers (A=1, B=2, etc.)"""
-        # Check if message is mostly numbers
         if re.match(EdgeCaseHandler.CIPHER_PATTERNS['numeric'], message):
             numbers = re.findall(r'\d+', message)
             
-            if len(numbers) < 5:  # Too short to be meaningful
+            if len(numbers) < 5:
                 return None
             
             try:
-                # Try A=1, B=2... Z=26 decoding
                 decoded_chars = []
                 for n in numbers:
                     num = int(n)
@@ -97,7 +87,6 @@ class EdgeCaseHandler:
                 
                 decoded = ''.join(decoded_chars)
                 
-                # Check if decoded text has scam keywords
                 scam_keywords = ['urgent', 'bank', 'account', 'otp', 'password', 
                                'won', 'prize', 'verify', 'blocked', 'refund']
                 
@@ -118,7 +107,6 @@ class EdgeCaseHandler:
         
         logger.warning(f"Long message detected: {len(message)} chars")
         
-        # Extract critical scam-indicating sentences first
         critical_keywords = ['otp', 'password', 'account', 'urgent', 'blocked', 
                            'verify', 'click', 'link', 'prize', 'won', 'bank',
                            'upi', 'refund', 'cashback', 'pay', 'transfer']
@@ -133,17 +121,14 @@ class EdgeCaseHandler:
             else:
                 normal_sentences.append(sentence.strip())
         
-        # Build truncated message
         result_parts = []
         current_length = 0
         
-        # Add critical sentences first
-        for sent in critical_sentences[:8]:  # Max 8 critical sentences
+        for sent in critical_sentences[:8]:
             if current_length + len(sent) < EdgeCaseHandler.MAX_MESSAGE_LENGTH - 100:
                 result_parts.append(sent)
                 current_length += len(sent)
         
-        # Fill remaining space with beginning and end
         remaining = EdgeCaseHandler.MAX_MESSAGE_LENGTH - current_length - 20
         if remaining > 200:
             beginning = message[:remaining//2]
@@ -165,14 +150,12 @@ class LanguageHandler:
     def _init_translator(self):
         """Initialize translator with fallback options"""
         try:
-            # Try deep-translator (free, no API key needed)
             from deep_translator import GoogleTranslator
             self.translator = GoogleTranslator
             self.translator_type = 'deep_translator'
             logger.info("Language handler initialized: deep_translator")
         except ImportError:
             try:
-                # Fallback to langdetect for detection only
                 import langdetect
                 self.translator_type = 'langdetect_only'
                 logger.warning("Translation unavailable, detection only")
@@ -189,15 +172,11 @@ class LanguageHandler:
             return text, 'unknown', False
         
         try:
-            # CRITICAL FIX: Filter out URLs before translation
-            # URLs with special characters break the translator
             text_for_detection = self._strip_urls(text)
             
             if not text_for_detection or len(text_for_detection.strip()) < 3:
-                # If only URLs remain, don't translate
                 return text, 'en', False
             
-            # Simple script detection for Indian languages
             if self._contains_devanagari(text_for_detection):
                 detected_lang = 'hi'
             elif self._contains_tamil(text_for_detection):
@@ -207,15 +186,10 @@ class LanguageHandler:
             elif self._contains_kannada(text_for_detection):
                 detected_lang = 'kn'
             else:
-                # Check for other non-ASCII (could be emoji, symbols, etc.)
                 if any(ord(c) > 127 for c in text_for_detection):
-                    # Has non-ASCII but not recognized Indian script
-                    # Might be emoji, Cyrillic, etc. - don't translate
                     return text, 'unknown', False
-                # Default to English if no non-Latin script detected
                 detected_lang = 'en'
             
-            # If not English, translate
             if detected_lang != 'en' and self.translator_type == 'deep_translator':
                 try:
                     from deep_translator import GoogleTranslator
@@ -339,9 +313,6 @@ class RateLimiter:
         for session_id in to_remove:
             del self.requests[session_id]
 
-# ============================================================================
-# ENUMS AND DATA CLASSES
-# ============================================================================
 
 class ScamCategory(Enum):
     BANKING = "banking_fraud"
@@ -505,9 +476,6 @@ class DetectionResult:
     threat_level: str
     impersonation_target: Optional[str] = None
 
-# ============================================================================
-# ENHANCED DETECTOR WITH URL SECURITY
-# ============================================================================
 
 class AdvancedDetector:
     CRITICAL_PATTERNS = {
@@ -1059,9 +1027,6 @@ class URLSecurityAnalyzer:
         except Exception as e:
             logger.warning(f"Homograph detection error: {e}")
             return False
-# ============================================================================
-# ENHANCED INTELLIGENCE EXTRACTOR
-# ============================================================================
 
 class IntelligenceExtractor:
     EXTRACTION_PATTERNS = {
@@ -1248,9 +1213,6 @@ class IntelligenceExtractor:
         
         return intel
 
-# ============================================================================
-# CONVERSATION STATE AND AGENT (unchanged but included for completeness)
-# ============================================================================
 
 @dataclass
 class ConversationState:
@@ -1768,9 +1730,6 @@ EXTRACTION_STYLE:
         if state.extracted_intel['bankAccounts']:
             state.escalation_stage = max(state.escalation_stage, 4)
 
-# ============================================================================
-# GLOBAL INSTANCES
-# ============================================================================
 
 session_store: Dict[str, ConversationState] = {}
 detector = AdvancedDetector()
@@ -1780,9 +1739,6 @@ edge_case_handler = EdgeCaseHandler()
 language_handler = LanguageHandler()
 rate_limiter = RateLimiter(max_requests=50, window_seconds=60)
 
-# ============================================================================
-# PYDANTIC MODELS
-# ============================================================================
 
 class Message(BaseModel):
     sender: str
@@ -1800,9 +1756,6 @@ class IncomingRequest(BaseModel):
     conversationHistory: List[Message] = Field(default_factory=list)
     metadata: Optional[Metadata] = None
 
-# ============================================================================
-# FASTAPI APPLICATION
-# ============================================================================
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -1894,9 +1847,6 @@ async def send_final_callback(session_id: str, state: ConversationState):
     logger.critical(f"ALL CALLBACK RETRIES FAILED: {session_id}")
     return False
 
-# ============================================================================
-# MAIN ENDPOINT WITH EDGE CASE HANDLING
-# ============================================================================
 
 @app.post("/api/honeypot")
 async def honeypot_endpoint(
@@ -1914,17 +1864,11 @@ async def honeypot_endpoint(
     incoming = request.message.text
     history = request.conversationHistory
     
-    # ========================================================================
-    # EDGE CASE 1: Rate Limiting
-    # ========================================================================
     is_allowed, rate_error = rate_limiter.check_rate_limit(session_id)
     if not is_allowed:
         logger.warning(f"Rate limit hit: {session_id}")
         raise HTTPException(status_code=429, detail=rate_error)
     
-    # ========================================================================
-    # EDGE CASE 2: Empty or Too Short Messages
-    # ========================================================================
     is_empty, empty_response = edge_case_handler.is_empty_or_too_short(incoming)
     if is_empty:
         logger.info(f"Empty/short message: '{incoming}'")
@@ -1934,9 +1878,6 @@ async def honeypot_endpoint(
             "scam_detected": False
         })
     
-    # ========================================================================
-    # EDGE CASE 3: Simple Greetings
-    # ========================================================================
     is_greeting, greeting_response = edge_case_handler.is_greeting(incoming)
     if is_greeting:
         logger.info(f"Greeting detected: '{incoming}'")
@@ -1946,32 +1887,20 @@ async def honeypot_endpoint(
             "scam_detected": False
         })
     
-    # ========================================================================
-    # EDGE CASE 4: Cipher Detection (A=1, B=2, etc.)
-    # ========================================================================
     decoded_message = edge_case_handler.detect_and_decode_cipher(incoming)
     if decoded_message:
         logger.warning(f"Cipher decoded: {incoming[:50]}... -> {decoded_message[:50]}...")
         incoming = decoded_message  # Use decoded version
     
-    # ========================================================================
-    # EDGE CASE 5: Language Detection and Translation
-    # ========================================================================
     translated_msg, detected_lang, was_translated = language_handler.detect_and_translate(incoming)
     if was_translated:
         logger.info(f"Language: {detected_lang}, translated to English")
         incoming = translated_msg  # Use translated version
     
-    # ========================================================================
-    # EDGE CASE 6: Long Message Truncation
-    # ========================================================================
     incoming, was_truncated = edge_case_handler.truncate_long_message(incoming)
     if was_truncated:
         logger.warning(f"Message truncated to {len(incoming)} chars")
     
-    # ========================================================================
-    # MAIN SCAM DETECTION
-    # ========================================================================
     detection = detector.detect(incoming, history)
 
     # Check for existing session
@@ -2074,9 +2003,6 @@ async def honeypot_endpoint(
     
     return JSONResponse(content={"status": "success", "reply": reply})
 
-# ============================================================================
-# ADMIN AND UTILITY ENDPOINTS
-# ============================================================================
 
 @app.get("/")
 async def root():
@@ -2274,9 +2200,6 @@ async def explain_session(session_id: str, x_api_key: str = Header(..., alias="x
         "notes": state.conversation_notes[-5:]  # Last 5 notes
     }
 
-# ============================================================================
-# APPLICATION ENTRY POINT
-# ============================================================================
 
 if __name__ == "__main__":
     import uvicorn
