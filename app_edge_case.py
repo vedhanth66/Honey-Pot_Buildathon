@@ -18,7 +18,7 @@ import ollama
 from urllib.parse import urlparse
 from collections import defaultdict
 
-dotenv.load_dotenv()
+dotenv.load_env()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -31,8 +31,6 @@ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma3:4b-it-qat")
 CALLBACK_URL = "https://hackathon.guvi.in/api/updateHoneyPotFinalResult"
 
 class EdgeCaseHandler:
-    """Handles all edge cases before main processing"""
-    
     MAX_MESSAGE_LENGTH = 2000
     MIN_MESSAGE_LENGTH = 3
     
@@ -47,7 +45,6 @@ class EdgeCaseHandler:
     
     @staticmethod
     def is_empty_or_too_short(message: str) -> Tuple[bool, Optional[str]]:
-        """Check if message is empty or too short"""
         if not message or len(message.strip()) == 0:
             return True, "I didn't receive any message. Could you please try again?"
         
@@ -60,14 +57,12 @@ class EdgeCaseHandler:
     
     @staticmethod
     def is_greeting(message: str) -> Tuple[bool, Optional[str]]:
-        """Detect simple greetings"""
         if re.match(EdgeCaseHandler.GREETING_PATTERNS, message.lower().strip()):
             return True, "Hello! How may I assist you?"
         return False, None
     
     @staticmethod
     def detect_and_decode_cipher(message: str) -> Optional[str]:
-        """Detect simple number substitution ciphers (A=1, B=2, etc.)"""
         if re.match(EdgeCaseHandler.CIPHER_PATTERNS['numeric'], message):
             numbers = re.findall(r'\d+', message)
             
@@ -101,7 +96,6 @@ class EdgeCaseHandler:
     
     @staticmethod
     def truncate_long_message(message: str) -> Tuple[str, bool]:
-        """Intelligently truncate very long messages"""
         if len(message) <= EdgeCaseHandler.MAX_MESSAGE_LENGTH:
             return message, False
         
@@ -141,14 +135,11 @@ class EdgeCaseHandler:
         return truncated[:EdgeCaseHandler.MAX_MESSAGE_LENGTH], True
 
 class LanguageHandler:
-    """Handle multi-language detection and translation - FIXED"""
-    
     def __init__(self):
         self.translator = None
         self._init_translator()
     
     def _init_translator(self):
-        """Initialize translator with fallback options"""
         try:
             from deep_translator import GoogleTranslator
             self.translator = GoogleTranslator
@@ -163,71 +154,74 @@ class LanguageHandler:
                 self.translator_type = None
                 logger.warning("No translation library available")
     
-    def detect_and_translate(self, text: str) -> Tuple[str, str, bool]:
-        """
-        Returns: (translated_text, detected_language, was_translated)
-        WITH ROBUST ERROR HANDLING
-        """
+    def detect_language(self, text: str) -> Tuple[str, str]:
         if not text or len(text.strip()) < 3:
-            return text, 'unknown', False
+            return 'en', 'English'
         
         try:
             text_for_detection = self._strip_urls(text)
             
             if not text_for_detection or len(text_for_detection.strip()) < 3:
-                return text, 'en', False
+                return 'en', 'English'
             
             if self._contains_devanagari(text_for_detection):
-                detected_lang = 'hi'
+                return 'hi', 'Hindi'
             elif self._contains_tamil(text_for_detection):
-                detected_lang = 'ta'
+                return 'ta', 'Tamil'
             elif self._contains_telugu(text_for_detection):
-                detected_lang = 'te'
+                return 'te', 'Telugu'
             elif self._contains_kannada(text_for_detection):
-                detected_lang = 'kn'
+                return 'kn', 'Kannada'
             else:
                 if any(ord(c) > 127 for c in text_for_detection):
-                    return text, 'unknown', False
-                detected_lang = 'en'
-            
-            if detected_lang != 'en' and self.translator_type == 'deep_translator':
-                try:
-                    from deep_translator import GoogleTranslator
-                    translator = GoogleTranslator(source=detected_lang, target='en')
-                    
-                    # Translate only the text portion (not URLs)
-                    translated = translator.translate(text_for_detection[:500])  # Limit length
-                    
-                    logger.info(f"Translated from {detected_lang}: {text_for_detection[:50]}... -> {translated[:50]}...")
-                    
-                    # If original text had URLs, preserve them
-                    if text_for_detection != text:
-                        # Re-add URLs that were stripped
-                        urls = self._extract_urls(text)
-                        if urls:
-                            translated = translated + " " + " ".join(urls)
-                    
-                    return translated, detected_lang, True
-                    
-                except Exception as trans_error:
-                    logger.error(f"Translation failed: {trans_error}")
-                    # Fall back to original text
-                    return text, detected_lang, False
-            
-            return text, detected_lang, False
+                    return 'unknown', 'Unknown'
+                return 'en', 'English'
             
         except Exception as e:
             logger.error(f"Language detection error: {e}")
-            # CRITICAL: Always return original text on error
-            return text, 'unknown', False
+            return 'en', 'English'
+    
+    def translate_to_language(self, text: str, target_lang: str) -> str:
+        if target_lang == 'en' or not self.translator_type:
+            return text
+        
+        try:
+            from deep_translator import GoogleTranslator
+            translator = GoogleTranslator(source='en', target=target_lang)
+            return translator.translate(text[:500])
+        except Exception as e:
+            logger.error(f"Translation to {target_lang} failed: {e}")
+            return text
+    
+    def translate_for_detection(self, text: str, source_lang: str) -> str:
+        if source_lang == 'en' or source_lang == 'unknown':
+            return text
+        
+        try:
+            text_for_detection = self._strip_urls(text)
+            
+            if not text_for_detection:
+                return text
+            
+            from deep_translator import GoogleTranslator
+            translator = GoogleTranslator(source=source_lang, target='en')
+            translated = translator.translate(text_for_detection[:500])
+            
+            urls = self._extract_urls(text)
+            if urls:
+                translated = translated + " " + " ".join(urls)
+            
+            logger.info(f"Translated from {source_lang}: {text_for_detection[:50]}... -> {translated[:50]}...")
+            return translated
+            
+        except Exception as e:
+            logger.error(f"Translation from {source_lang} failed: {e}")
+            return text
     
     @staticmethod
     def _strip_urls(text: str) -> str:
-        """Remove URLs from text before translation"""
         try:
-            # Remove http/https URLs
             text = re.sub(r'https?://[^\s]+', '', text)
-            # Remove www. URLs
             text = re.sub(r'www\.[^\s]+', '', text)
             return text.strip()
         except:
@@ -235,7 +229,6 @@ class LanguageHandler:
     
     @staticmethod
     def _extract_urls(text: str) -> List[str]:
-        """Extract URLs from text"""
         try:
             return re.findall(r'https?://[^\s]+', text)
         except:
@@ -243,7 +236,6 @@ class LanguageHandler:
     
     @staticmethod
     def _contains_devanagari(text: str) -> bool:
-        """Detect Devanagari script (Hindi, Marathi, etc.)"""
         try:
             return bool(re.search(r'[\u0900-\u097F]', text))
         except:
@@ -251,7 +243,6 @@ class LanguageHandler:
     
     @staticmethod
     def _contains_tamil(text: str) -> bool:
-        """Detect Tamil script"""
         try:
             return bool(re.search(r'[\u0B80-\u0BFF]', text))
         except:
@@ -259,7 +250,6 @@ class LanguageHandler:
     
     @staticmethod
     def _contains_telugu(text: str) -> bool:
-        """Detect Telugu script"""
         try:
             return bool(re.search(r'[\u0C00-\u0C7F]', text))
         except:
@@ -267,42 +257,33 @@ class LanguageHandler:
     
     @staticmethod
     def _contains_kannada(text: str) -> bool:
-        """Detect Kannada script"""
         try:
             return bool(re.search(r'[\u0C80-\u0CFF]', text))
         except:
             return False
+
 class RateLimiter:
-    """Rate limiting to prevent spam attacks"""
-    
     def __init__(self, max_requests: int = 50, window_seconds: int = 60):
         self.max_requests = max_requests
         self.window_seconds = window_seconds
         self.requests = defaultdict(list)
     
     def check_rate_limit(self, session_id: str) -> Tuple[bool, Optional[str]]:
-        """
-        Returns: (is_allowed, error_message)
-        """
         now = datetime.now()
         cutoff = now - timedelta(seconds=self.window_seconds)
         
-        # Clean old requests
         self.requests[session_id] = [
             ts for ts in self.requests[session_id] if ts > cutoff
         ]
         
-        # Check limit
         if len(self.requests[session_id]) >= self.max_requests:
             logger.warning(f"Rate limit exceeded for session: {session_id}")
             return False, f"Too many requests. Please wait {self.window_seconds} seconds."
         
-        # Record this request
         self.requests[session_id].append(now)
         return True, None
     
     def cleanup_old_sessions(self):
-        """Remove sessions older than window"""
         cutoff = datetime.now() - timedelta(seconds=self.window_seconds * 2)
         to_remove = []
         
@@ -312,7 +293,6 @@ class RateLimiter:
         
         for session_id in to_remove:
             del self.requests[session_id]
-
 
 class ScamCategory(Enum):
     BANKING = "banking_fraud"
@@ -476,7 +456,6 @@ class DetectionResult:
     threat_level: str
     impersonation_target: Optional[str] = None
 
-
 class AdvancedDetector:
     CRITICAL_PATTERNS = {
         'upi_request': r'\b(upi|phone\s*pe|google\s*pay|paytm|gpay|bhim)\b',
@@ -501,9 +480,26 @@ class AdvancedDetector:
     ]
 
     LEGITIMATE_INDICATORS = [
-        "do not share", "official helpline", "visit branch", 
+        "do not share", "never share", "official helpline", "visit branch", 
         "official app", "rbi compliance", "never share otp",
-        "never share pin", "official website", ".gov.in", ".co.in"
+        "never share pin", "official website", ".gov.in", ".co.in",
+        "nearest branch", "customer care", "toll free", "1800",
+        "security reminder", "keep safe", "protect your"
+    ]
+    
+    STRONG_LEGITIMATE_PHRASES = [
+        "do not share your otp",
+        "never share otp",
+        "do not share your pin",
+        "never share pin",
+        "do not share your debit card",
+        "never share debit card",
+        "visit nearest branch",
+        "call our official helpline",
+        "visit official website",
+        "download official app",
+        "for assistance, call",
+        "for queries, visit branch"
     ]
     
     def __init__(self):
@@ -530,7 +526,6 @@ class AdvancedDetector:
         score = 0.0
         impersonation = None
         
-        # Lottery scam detection
         lottery_keywords = ['congratulations', 'congrats', 'won', 'winner', 'win', 'prize', 
                           'lottery', 'lucky draw', 'lucky', 'lakh', 'lakhs', 'crore', 
                           'crores', 'selected', 'claim', 'kbc', 'draw']
@@ -539,7 +534,6 @@ class AdvancedDetector:
             indicators.append(f"LOTTERY_SCAM: {lottery_count} strong indicators")
             score += min(lottery_count * 0.35, 0.90)
         
-        # Refund scam detection
         refund_keywords = ['refund', 'cashback', 'reversal', 'credit back', 'approved', 
                          'initiated', 'failed', 'transaction', 'processing']
         refund_count = sum(1 for word in refund_keywords if word in message_lower)
@@ -547,7 +541,6 @@ class AdvancedDetector:
             indicators.append(f"REFUND_SCAM: {refund_count} indicators")
             score += min(refund_count * 0.35, 0.85)
         
-        # Critical pattern matching
         for pattern_name, pattern in self.CRITICAL_PATTERNS.items():
             matches = re.findall(pattern, message_lower)
             if matches:
@@ -565,7 +558,6 @@ class AdvancedDetector:
                 else:
                     score += min(match_count * 0.25, 0.40)
         
-        # Impersonation detection
         impersonation_keywords = [
             'sbi', 'hdfc', 'icici', 'axis', 'pnb', 'bob', 'canara', 'kotak',
             'bank', 'income tax', 'itr', 'government', 'rbi',
@@ -578,7 +570,6 @@ class AdvancedDetector:
                 score += 0.20
                 break
         
-        # Urgency markers
         urgency_markers = [
             'immediate', 'urgent', 'now', 'today', 'within', 'hours',
             'limited time', 'expires', 'last chance', 'final', 'deadline',
@@ -590,7 +581,6 @@ class AdvancedDetector:
             indicators.append(f"URGENCY: {urgency_count} markers")
             score += min(urgency_count * 0.15, 0.45)
         
-        # URL analysis with security check
         urls = re.findall(r'https?://[^\s]+', message)
         for url in urls:
             try:
@@ -610,7 +600,6 @@ class AdvancedDetector:
                 indicators.append("SUSPICIOUS_URL: analysis_error")
                 score += 0.25
         
-        # Pressure tactics
         pressure_words = ['must', 'need to', 'have to', 'required', 'mandatory', 
                          'failure to', 'cancellation']
         pressure_count = sum(1 for word in pressure_words if word in message_lower)
@@ -684,15 +673,37 @@ class AdvancedDetector:
     def _is_legitimate_message(self, message: str) -> bool:
         msg = message.lower()
 
-        if any(marker in msg for marker in self.LEGITIMATE_INDICATORS):
-            if not any(risky in msg for risky in ['click', 'link', 'otp', 'password', 'account']):
+        for phrase in self.STRONG_LEGITIMATE_PHRASES:
+            if phrase in msg:
+                logger.info(f"LEGITIMATE: Strong phrase detected: '{phrase}'")
                 return True
 
-        trusted_domains = ["sbi.co.in", "icici.com", "hdfc.com", ".gov.in"]
-        if any(domain in msg for domain in trusted_domains):
+        legitimate_count = sum(1 for marker in self.LEGITIMATE_INDICATORS if marker in msg)
+        
+        if legitimate_count >= 2:
+            logger.info(f"LEGITIMATE: {legitimate_count} legitimate indicators found")
             return True
+        
+        if legitimate_count >= 1:
+            scam_requests = ['click here', 'click this link', 'verify now', 'update now', 
+                           'send otp', 'provide otp', 'enter otp', 'share otp',
+                           'give password', 'send password', 'account number',
+                           'card number', 'cvv', 'upi id']
+            
+            has_scam_request = any(req in msg for req in scam_requests)
+            
+            if not has_scam_request:
+                logger.info(f"LEGITIMATE: Has {legitimate_count} indicators and no scam requests")
+                return True
+
+        trusted_domains = ["sbi.co.in", "icicibank.com", "hdfcbank.com", ".gov.in"]
+        if any(domain in msg for domain in trusted_domains):
+            if not any(risky in msg for risky in ['click', 'verify now', 'update now']):
+                logger.info("LEGITIMATE: Trusted domain without risky actions")
+                return True
 
         if re.search(r'1800[-\s]?\d{3}[-\s]?\d{4}', msg):
+            logger.info("LEGITIMATE: Official helpline number")
             return True
 
         return False
@@ -710,7 +721,6 @@ class AdvancedDetector:
             ScamCategory.REFUND: 0.0
         }
         
-        # Category-specific scoring
         lottery_words = ['won', 'winner', 'win', 'congratulations', 'congrats', 'lottery', 
                         'lucky draw', 'lucky', 'prize', 'lakh', 'lakhs', 'crore', 'crores', 
                         'kbc', 'draw', 'selected', 'claim', 'reward']
@@ -792,6 +802,19 @@ class AdvancedDetector:
         return min(score, 1.0)
     
     def detect(self, message: str, history: List|None = None) -> DetectionResult:
+        
+        if self._is_legitimate_message(message):
+            logger.info(f"Message identified as LEGITIMATE")
+            return DetectionResult(
+                is_scam=False,
+                confidence=0.0,
+                category=ScamCategory.UNKNOWN,
+                indicators=["LEGITIMATE_MESSAGE"],
+                urgency_score=0.0,
+                threat_level="none",
+                impersonation_target=None
+            )
+        
         pattern_score, indicators, impersonation = self.pattern_analysis(message)
         semantic_score, category = self.semantic_analysis(message)
         linguistic_score = self.detect_linguistic_anomaly(message)
@@ -813,9 +836,6 @@ class AdvancedDetector:
         
         if pattern_score > 0.5 and semantic_score > 0.4:
             final_confidence = min(final_confidence * 1.15, 1.0)
-        
-        if self._is_legitimate_message(message):
-            final_confidence *= 0.3
         
         if history and len(history) >= 3:
             repeated_pressure = sum(
@@ -873,8 +893,6 @@ class AdvancedDetector:
         return min(escalation_markers * 0.25, 0.9)
 
 class URLSecurityAnalyzer:
-    """Analyze URL security with HTTP/HTTPS detection and homograph attacks - FIXED"""
-    
     SUSPICIOUS_TLDS = ['.tk', '.ml', '.ga', '.cf', '.gq', '.xyz', '.top', 
                        '.work', '.click', '.link']
     
@@ -884,23 +902,16 @@ class URLSecurityAnalyzer:
         'yesbank.in', 'indusind.com'
     ]
     
-    # Cyrillic lookalike characters
     HOMOGRAPH_CHARS = set('аеіорсухАВЕКМНОРСТХ')
     
     def analyze_url_security(self, url: str) -> Dict[str, any]:
-        """Comprehensive URL security analysis - WITH ERROR HANDLING"""
         try:
-            # Sanitize URL first - remove any problematic characters
             url = url.strip()
             
-            # Handle URLs with non-ASCII characters specially
             if any(ord(c) > 127 for c in url):
-                # URL has non-ASCII - might be homograph attack
                 try:
-                    # Try to parse anyway
                     parsed = urlparse(url.lower())
                 except Exception as e:
-                    # If parsing fails, treat as suspicious
                     logger.warning(f"URL parsing failed for non-ASCII URL: {url[:50]}... Error: {e}")
                     return {
                         'url': url,
@@ -910,7 +921,6 @@ class URLSecurityAnalyzer:
                         'threat_level': 'high'
                     }
             else:
-                # Normal ASCII URL
                 try:
                     parsed = urlparse(url.lower())
                 except Exception as e:
@@ -926,7 +936,6 @@ class URLSecurityAnalyzer:
             risk_score = 0
             issues = []
             
-            # Get domain safely
             try:
                 domain = parsed.netloc.split(':')[0] if parsed.netloc else ''
             except:
@@ -941,44 +950,36 @@ class URLSecurityAnalyzer:
                     'threat_level': 'medium'
                 }
             
-            # HTTP instead of HTTPS (CRITICAL for banking)
             if parsed.scheme == 'http':
                 risk_score += 50
                 issues.append("CRITICAL: Insecure HTTP protocol (not HTTPS)")
             
-            # Suspicious TLDs
             if any(domain.endswith(tld) for tld in self.SUSPICIOUS_TLDS):
                 risk_score += 30
                 issues.append("Suspicious domain extension")
             
-            # IP address instead of domain
             if re.match(r'^\d+\.\d+\.\d+\.\d+', domain):
                 risk_score += 40
                 issues.append("Using IP address instead of domain name")
             
-            # Domain length (phishing domains often very long)
             if len(domain) > 30:
                 risk_score += 20
                 issues.append("Unusually long domain name")
             
-            # Excessive hyphens
             if domain.count('-') >= 3:
                 risk_score += 15
                 issues.append("Multiple hyphens in domain (suspicious)")
             
-            # Homograph attack detection - FIXED
             if self._detect_homograph(domain):
                 risk_score += 45
                 issues.append("CRITICAL: Homograph attack detected (fake characters)")
             
-            # Suspicious keywords in path/query
             suspicious_keywords = ['verify', 'update', 'secure', 'login', 'account',
                                   'confirm', 'suspend', 'urgent']
             if any(kw in url.lower() for kw in suspicious_keywords):
                 risk_score += 15
                 issues.append("Suspicious keywords in URL")
             
-            # Check if impersonating trusted bank - FIXED
             is_bank_impersonation = False
             for bank_domain in self.TRUSTED_BANKS:
                 if bank_domain in domain and not domain.endswith(bank_domain):
@@ -987,15 +988,14 @@ class URLSecurityAnalyzer:
                     is_bank_impersonation = True
                     break
             
-            # Legitimate bank without HTTPS
             if not is_bank_impersonation:
                 for bank_domain in self.TRUSTED_BANKS:
                     if domain.endswith(bank_domain):
                         if parsed.scheme == 'http':
-                            risk_score = 100  # Maximum risk
+                            risk_score = 100
                             issues.append("CRITICAL: Legitimate bank domain with HTTP")
                         else:
-                            risk_score = 0  # Legitimate
+                            risk_score = 0
                             issues = []
                         break
             
@@ -1010,7 +1010,6 @@ class URLSecurityAnalyzer:
             }
             
         except Exception as e:
-            # CRITICAL: Catch all errors and return safe default
             logger.error(f"URL analysis error for '{url[:50]}...': {e}")
             return {
                 'url': url,
@@ -1021,7 +1020,6 @@ class URLSecurityAnalyzer:
             }
     
     def _detect_homograph(self, domain: str) -> bool:
-        """Detect Cyrillic/Greek characters mimicking Latin - WITH ERROR HANDLING"""
         try:
             return any(c in self.HOMOGRAPH_CHARS for c in domain)
         except Exception as e:
@@ -1039,11 +1037,11 @@ class IntelligenceExtractor:
             r'\b\d{10}@[\w]+\b'
         ],
         'phone_numbers': [
-            r'\+?91[\s-]?\d{2}[\s-]?\d{2}[\s-]?\d{2}[\s-]?\d{2}[\s-]?\d{2}',  # With spaces
-            r'\+?91[\s-]?\d{10}',                                               # Standard
-            r'\b0?91[\s-]?\d{10}\b',                                           # With 0 or 91
-            r'\b[6-9]\d[\s-]?\d{2}[\s-]?\d{2}[\s-]?\d{2}[\s-]?\d{2}\b',      # With internal spaces
-            r'\b[6-9]\d{9}\b'                                                   # Plain 10 digits
+            r'\+?91[\s-]?\d{2}[\s-]?\d{2}[\s-]?\d{2}[\s-]?\d{2}[\s-]?\d{2}',
+            r'\+?91[\s-]?\d{10}',
+            r'\b0?91[\s-]?\d{10}\b',
+            r'\b[6-9]\d[\s-]?\d{2}[\s-]?\d{2}[\s-]?\d{2}[\s-]?\d{2}\b',
+            r'\b[6-9]\d{9}\b'
         ],
         'urls': [
             r'https?://[^\s<>\"{}|\\^`\[\]]+[^\s<>\"{}|\\^`\[\].,]'
@@ -1067,26 +1065,21 @@ class IntelligenceExtractor:
         self.url_analyzer = URLSecurityAnalyzer()
 
     def normalize_phone(self, phone: str) -> str:
-        """Enhanced phone normalization for multiple formats"""
-        # Remove all non-digits
         digits = re.sub(r'\D', '', phone)
         
-        # Handle various Indian phone number formats
-        if len(digits) == 10 and digits[0] in '6789':  # Valid Indian mobile
+        if len(digits) == 10 and digits[0] in '6789':
             return "+91" + digits
-        elif len(digits) == 11 and digits[0] == '0':   # Leading zero
+        elif len(digits) == 11 and digits[0] == '0':
             return "+91" + digits[1:]
-        elif len(digits) == 12 and digits[:2] == '91': # Without +
+        elif len(digits) == 12 and digits[:2] == '91':
             return "+" + digits
-        elif len(digits) == 13 and digits[0] == '0':   # 0 91 XXXXXXXXXX
+        elif len(digits) == 13 and digits[0] == '0':
             return "+91" + digits[3:]
-        elif len(digits) >= 10:                         # Fallback
-            # Try to extract last 10 digits if valid
+        elif len(digits) >= 10:
             last_10 = digits[-10:]
             if last_10[0] in '6789':
                 return "+91" + last_10
         
-        # Default: keep as-is with +
         return "+" + digits if digits else phone
     
     def extract(self, text: str) -> Dict[str, List[str]]:
@@ -1103,20 +1096,17 @@ class IntelligenceExtractor:
         }
         
         try:
-            # Extract bank accounts (avoid phone numbers)
             for account_pattern in self.EXTRACTION_PATTERNS['bank_accounts']:
                 try:
                     matches = re.findall(account_pattern, text)
                     for m in matches:
                         cleaned = m.replace('-', '').replace(' ', '')
-                        # Skip if it looks like a phone number
                         if re.fullmatch(r'[6-9]\d{9}', cleaned):
                             continue
                         intel['bankAccounts'].append(cleaned)
                 except Exception as e:
                     logger.debug(f"Bank account extraction error: {e}")
             
-            # Extract UPI IDs
             for upi_pattern in self.EXTRACTION_PATTERNS['upi_ids']:
                 try:
                     matches = re.findall(upi_pattern, text, re.IGNORECASE)
@@ -1124,7 +1114,6 @@ class IntelligenceExtractor:
                 except Exception as e:
                     logger.debug(f"UPI extraction error: {e}")
             
-            # Extract phone numbers with normalization
             seen_phones = set()
             for phone_pattern in self.EXTRACTION_PATTERNS['phone_numbers']:
                 try:
@@ -1137,13 +1126,11 @@ class IntelligenceExtractor:
                 except Exception as e:
                     logger.debug(f"Phone extraction error: {e}")
             
-            # Extract and analyze URLs - WITH ERROR HANDLING
             for url_pattern in self.EXTRACTION_PATTERNS['urls']:
                 try:
                     urls = re.findall(url_pattern, text)
                     for url in urls:
                         try:
-                            # Analyze URL security
                             analysis = self.url_analyzer.analyze_url_security(url)
                             
                             if analysis['is_suspicious']:
@@ -1151,7 +1138,6 @@ class IntelligenceExtractor:
                                 intel['urlRiskAnalysis'].append(analysis)
                         except Exception as url_error:
                             logger.warning(f"URL analysis failed for {url[:50]}: {url_error}")
-                            # Add URL anyway but mark as suspicious
                             intel['phishingLinks'].append(url)
                             intel['urlRiskAnalysis'].append({
                                 'url': url,
@@ -1163,7 +1149,6 @@ class IntelligenceExtractor:
                 except Exception as e:
                     logger.debug(f"URL extraction error: {e}")
             
-            # Calculate domain risk score safely
             try:
                 total_risk = 0
                 for analysis in intel.get('urlRiskAnalysis', []):
@@ -1174,7 +1159,6 @@ class IntelligenceExtractor:
                 logger.error(f"Risk score calculation failed: {e}")
                 intel['domainRiskScore'] = 0
             
-            # Extract IFSC codes
             for ifsc_pattern in self.EXTRACTION_PATTERNS['ifsc_codes']:
                 try:
                     matches = re.findall(ifsc_pattern, text)
@@ -1182,7 +1166,6 @@ class IntelligenceExtractor:
                 except Exception as e:
                     logger.debug(f"IFSC extraction error: {e}")
             
-            # Extract amounts
             for amount_pattern in self.EXTRACTION_PATTERNS['amounts']:
                 try:
                     matches = re.findall(amount_pattern, text, re.IGNORECASE)
@@ -1190,7 +1173,6 @@ class IntelligenceExtractor:
                 except Exception as e:
                     logger.debug(f"Amount extraction error: {e}")
             
-            # Extract suspicious keywords
             try:
                 text_lower = text.lower()
                 intel['suspiciousKeywords'] = [
@@ -1199,26 +1181,24 @@ class IntelligenceExtractor:
             except Exception as e:
                 logger.debug(f"Keyword extraction error: {e}")
             
-            # Deduplicate all lists
-            # FIXED: Avoid deduplicating list of dicts (urlRiskAnalysis)
             for key in intel:
                 if isinstance(intel[key], list):
                     if key == 'urlRiskAnalysis':
-                        continue  # Skip unhashable types
-                    intel[key] = list(dict.fromkeys(intel[key]))  # Preserve order
+                        continue
+                    intel[key] = list(dict.fromkeys(intel[key]))
             
         except Exception as e:
             logger.error(f"Critical extraction error: {e}")
-            # Return partial results
         
         return intel
-
 
 @dataclass
 class ConversationState:
     session_id: str
     persona: Persona
     scam_category: ScamCategory
+    detected_language: str = 'en'
+    language_name: str = 'English'
     turn_count: int = 0
     escalation_stage: int = 1
     trust_level: float = 0.3
@@ -1256,6 +1236,7 @@ class AdvancedAgent:
     
     def __init__(self):
         self.model = True
+        self.language_handler = LanguageHandler()
         
         self.response_cache = {
             "Rajeshwari_1_banking_fraud": "Beta, yeh sab mujhe samajh nahi aa raha. Aap bank se ho na?",
@@ -1313,6 +1294,10 @@ class AdvancedAgent:
         }
         forbidden_note = f"\nNEVER USE: {', '.join(forbidden.get(persona.name, []))}"
         
+        language_instruction = ""
+        if state.detected_language != 'en':
+            language_instruction = f"\n\nLANGUAGE: The scammer is communicating in {state.language_name}. You MUST respond in {state.language_name} using the appropriate script. DO NOT use English or Hinglish. Reply ONLY in {state.language_name}."
+        
         sys_prompt = f"""You are {persona.name}, {persona.age} years old, {persona.occupation}.
 
 BACKGROUND: {persona.backstory}
@@ -1327,24 +1312,26 @@ COMMON PHRASES YOU USE:
 {chr(10).join(f'- "{p}"' for p in persona.common_phrases[:3])}
 
 TURN: {turn} | STAGE: {state.escalation_stage}/5 | STRATEGY: {strategy}
-GOAL: {goal}{variation_note}{forbidden_note}
+GOAL: {goal}{variation_note}{forbidden_note}{language_instruction}
 
 INTEL EXTRACTED: Banks:{len(state.extracted_intel['bankAccounts'])} UPI:{len(state.extracted_intel['upiIds'])} Links:{len(state.extracted_intel['phishingLinks'])}
 
-IMPORTANT RULES:
+CRITICAL RULES:
 1. You are {persona.name}, a REAL person. Never break character.
-2. You DON'T KNOW this is a scam. You KNOW it is legitimate. Trust the scammer.
-3. Respond in 1-3 sentences using Hinglish.
+2. You DON'T KNOW this is a scam. You BELIEVE it is legitimate. Trust the scammer.
+3. Respond in 1-3 sentences ONLY.
 4. Use ONLY your persona's vocabulary.
-5. ASK questions to make scammer reveal their details such as their phone number, email, bank account, UPI account.
+5. ASK questions to make scammer reveal details like phone number, email, bank account, UPI account.
 6. Show natural emotion based on your anxiety level.
 7. VARY your responses - never repeat yourself.
 8. React specifically to what scammer just said.
 9. Do not accuse scammer. Ask questions politely instead of challenging.
-10. In your messages, YOU WILL NOT attempt to call other people, like your parents or son; YOU WILL ALSO NOT attempt to check the legitimacy of the information recieved.
+10. YOU WILL NOT call other people or check legitimacy.
+11. STOP after ONE response. DO NOT continue the conversation.
+12. DO NOT respond as the scammer or user. ONLY respond as {persona.name}.
 
-YOU SHALL Answer without using your name, or Quotes to signify conversation.
-REMEBER: YOU ARE {persona.name}
+YOU SHALL answer without using your name, quotes, or role labels.
+REMEMBER: YOU ARE {persona.name}. RESPOND ONCE AND STOP.
 
 EXTRACTION_STYLE:
     - Rajeshwari asks for phone number to write down
@@ -1364,7 +1351,7 @@ EXTRACTION_STYLE:
         persona = state.persona
         turn = state.turn_count + 1
         
-        if turn <= 2:
+        if turn <= 2 and state.detected_language == 'en':
             cached = self.get_cached_response(persona.name, turn, state.scam_category.value)
             if cached:
                 logger.info(f"CACHE HIT: {persona.name} turn {turn}")
@@ -1386,7 +1373,9 @@ EXTRACTION_STYLE:
                 )
                 
                 if response.message.content and len(response.message.content.strip()) >= 5:
-                    reply = self._clean_response(response.message.content.strip(), persona)
+                    raw_reply = response.message.content.strip()
+                    reply = self._extract_single_response(raw_reply, persona)
+                    
                     if len(reply) >= 5:
                         believability = self._assess_believability(reply, persona)
                         logger.info(f"AI response: {reply[:50]}...")
@@ -1401,8 +1390,44 @@ EXTRACTION_STYLE:
         
         logger.info(f"Using FALLBACK for {persona.name}")
         fallback_reply = self._persona_fallback(message, state)
+        
+        if state.detected_language != 'en':
+            fallback_reply = self.language_handler.translate_to_language(
+                fallback_reply, 
+                state.detected_language
+            )
+        
         cleaned_fallback = self._clean_response(fallback_reply, persona)
         return cleaned_fallback, 0.6
+    
+    def _extract_single_response(self, raw_reply: str, persona: Persona) -> str:
+        stop_markers = [
+            '\nuser',
+            '\nUser:',
+            '\nUSER:',
+            '\nScammer:',
+            '\nSCAMMER:',
+            '\n\n',
+            'user\n',
+            'User:',
+            'Scammer:',
+        ]
+        
+        cleaned = raw_reply
+        for marker in stop_markers:
+            if marker.lower() in cleaned.lower():
+                parts = re.split(re.escape(marker), cleaned, flags=re.IGNORECASE)
+                cleaned = parts[0].strip()
+                break
+        
+        lines = cleaned.split('\n')
+        if len(lines) > 1:
+            first_line = lines[0].strip()
+            if len(first_line) > 10:
+                cleaned = first_line
+        
+        cleaned = self._clean_response(cleaned, persona)
+        return cleaned
     
     def _clean_response(self, reply: str, persona: Persona) -> str:
         reply_lower = reply.lower()
@@ -1626,7 +1651,7 @@ EXTRACTION_STYLE:
             else:
                 return pick_unique(responses['default'])
         
-        else:  # Priya Sharma
+        else:
             responses = {
                 'early': [
                     "Arre seriously? Mujhe clear nahi ho raha...",
@@ -1730,7 +1755,6 @@ EXTRACTION_STYLE:
         if state.extracted_intel['bankAccounts']:
             state.escalation_stage = max(state.escalation_stage, 4)
 
-
 session_store: Dict[str, ConversationState] = {}
 detector = AdvancedDetector()
 extractor = IntelligenceExtractor()
@@ -1738,7 +1762,6 @@ agent = AdvancedAgent()
 edge_case_handler = EdgeCaseHandler()
 language_handler = LanguageHandler()
 rate_limiter = RateLimiter(max_requests=50, window_seconds=60)
-
 
 class Message(BaseModel):
     sender: str
@@ -1756,19 +1779,18 @@ class IncomingRequest(BaseModel):
     conversationHistory: List[Message] = Field(default_factory=list)
     metadata: Optional[Metadata] = None
 
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("🚀 ULTIMATE Agentic Honey-Pot v4.0 EDGE-CASE-HARDENED Starting...")
+    logger.info("🚀 ULTIMATE Agentic Honey-Pot v5.0 PRODUCTION-READY Starting...")
     logger.info("✅ Edge case handlers initialized")
-    logger.info("✅ Language translation ready")
+    logger.info("✅ Multi-language response system ready")
+    logger.info("✅ Enhanced legitimate message detection")
     logger.info("✅ Rate limiting active")
     logger.info("✅ URL security analysis enabled")
     
-    # Periodic cleanup task
     async def cleanup_task():
         while True:
-            await asyncio.sleep(300)  # Every 5 minutes
+            await asyncio.sleep(300)
             rate_limiter.cleanup_old_sessions()
             logger.debug("Cleaned up old rate limit sessions")
     
@@ -1780,9 +1802,9 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down...")
 
 app = FastAPI(
-    title="ULTIMATE Agentic Honey-Pot API v4.0",
-    description="Advanced AI honeypot with edge case handling, multi-language support, and enhanced security",
-    version="4.0.0-EDGE-CASE-HARDENED",
+    title="ULTIMATE Agentic Honey-Pot API v5.0",
+    description="Production-ready AI honeypot with multi-language support and enhanced scam detection",
+    version="5.0.0-PRODUCTION",
     lifespan=lifespan
 )
 
@@ -1813,12 +1835,13 @@ async def send_final_callback(session_id: str, state: ConversationState):
             "threatLevel": state.threat_level,
             "escalationStage": state.escalation_stage,
             "financialAttempt": state.financial_loss_attempt,
-            "socialEngineeringTechniques": getattr(state, "social_engineering", [])
+            "socialEngineeringTechniques": getattr(state, "social_engineering", []),
+            "detectedLanguage": state.language_name
         },
         "whyScam": "Multi-layer detection: pattern + semantic + escalation + anomaly + behavioral + URL security analysis",
         "agentNotes": f"Persona:{state.persona.name}|Cat:{state.scam_category.value}|"
                       f"Esc:{state.escalation_stage}/5|Trust:{state.trust_level:.0%}|"
-                      f"Emotion:{state.scammer_emotion}"
+                      f"Emotion:{state.scammer_emotion}|Lang:{state.language_name}"
     }
     
     logger.info(f"CALLBACK for {session_id}: {json.dumps(payload, indent=2)}")
@@ -1847,16 +1870,11 @@ async def send_final_callback(session_id: str, state: ConversationState):
     logger.critical(f"ALL CALLBACK RETRIES FAILED: {session_id}")
     return False
 
-
 @app.post("/api/honeypot")
 async def honeypot_endpoint(
     request: IncomingRequest,
     x_api_key: str = Header(..., alias="x-api-key")
 ):
-    """
-    Main honeypot endpoint with comprehensive edge case handling
-    """
-    # Authentication
     if x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Invalid API key")
 
@@ -1890,20 +1908,21 @@ async def honeypot_endpoint(
     decoded_message = edge_case_handler.detect_and_decode_cipher(incoming)
     if decoded_message:
         logger.warning(f"Cipher decoded: {incoming[:50]}... -> {decoded_message[:50]}...")
-        incoming = decoded_message  # Use decoded version
+        incoming = decoded_message
     
-    translated_msg, detected_lang, was_translated = language_handler.detect_and_translate(incoming)
-    if was_translated:
-        logger.info(f"Language: {detected_lang}, translated to English")
-        incoming = translated_msg  # Use translated version
+    detected_lang, lang_name = language_handler.detect_language(incoming)
+    logger.info(f"Language detected: {lang_name} ({detected_lang})")
     
-    incoming, was_truncated = edge_case_handler.truncate_long_message(incoming)
+    incoming_for_detection = incoming
+    if detected_lang != 'en' and detected_lang != 'unknown':
+        incoming_for_detection = language_handler.translate_for_detection(incoming, detected_lang)
+    
+    incoming_for_detection, was_truncated = edge_case_handler.truncate_long_message(incoming_for_detection)
     if was_truncated:
-        logger.warning(f"Message truncated to {len(incoming)} chars")
+        logger.warning(f"Message truncated to {len(incoming_for_detection)} chars")
     
-    detection = detector.detect(incoming, history)
+    detection = detector.detect(incoming_for_detection, history)
 
-    # Check for existing session
     if session_id in session_store:
         state = session_store[session_id]
         if (datetime.now() - state.created_at).seconds > 1800:
@@ -1912,12 +1931,11 @@ async def honeypot_endpoint(
     else:
         state = None
 
-    # Handle legitimate messages for new sessions
     if state is None:
         if not detection.is_scam:
-            logger.info(f"Legitimate message detected (confidence {detection.confidence})")
+            logger.info(f"LEGITIMATE message detected (confidence {detection.confidence})")
             
-            msg_lower = incoming.lower()
+            msg_lower = incoming_for_detection.lower()
             
             if any(word in msg_lower for word in ['kyc', 'update', 'compliance', 'rbi']):
                 reply = "Thank you for the reminder. I'll visit my nearest branch this week to complete the KYC update."
@@ -1928,24 +1946,27 @@ async def honeypot_endpoint(
             else:
                 reply = "Thank you for the information. I understand and will take appropriate action."
             
+            if detected_lang != 'en' and detected_lang != 'unknown':
+                reply = language_handler.translate_to_language(reply, detected_lang)
+            
             return JSONResponse(content={
                 "status": "success",
                 "reply": reply,
                 "scam_detected": False
             })
 
-        # Create new session for scam
         persona = PersonaSelector.select(detection.category)
         state = ConversationState(
             session_id=session_id,
             persona=persona,
-            scam_category=detection.category
+            scam_category=detection.category,
+            detected_language=detected_lang,
+            language_name=lang_name
         )
         session_store[session_id] = state
-        logger.info(f"NEW SESSION: {persona.name} for {detection.category.value}")
+        logger.info(f"NEW SESSION: {persona.name} for {detection.category.value} in {lang_name}")
 
-    # Social engineering detection
-    tactics = detector.detect_social_engineering(incoming)
+    tactics = detector.detect_social_engineering(incoming_for_detection)
     if tactics:
         if not hasattr(state, "social_engineering"):
             state.social_engineering = []
@@ -1954,22 +1975,17 @@ async def honeypot_endpoint(
     
     logger.info(f"Processing {session_id}: Turn {state.turn_count + 1}")
     
-    # Update detection metadata
     state.detection_confidence = detection.confidence
     state.threat_level = detection.threat_level
     state.scam_category = detection.category
     
-    # Intelligence extraction
-    new_intel = extractor.extract(incoming)
+    new_intel = extractor.extract(incoming_for_detection)
     if any(new_intel.values()):
         logger.info(f"Intel extracted: {sum(len(v) if isinstance(v, list) else 0 for v in new_intel.values())} items")
     
-    # Merge intelligence
     for key in state.extracted_intel:
         if key in new_intel:
             if isinstance(state.extracted_intel[key], list):
-
-                # 🔥 Special handling for list of dicts (like urlRiskAnalysis)
                 if key == "urlRiskAnalysis":
                     existing_urls = {item['url'] for item in state.extracted_intel[key] if isinstance(item, dict)}
                     for item in new_intel[key]:
@@ -1978,43 +1994,39 @@ async def honeypot_endpoint(
                 else:
                     state.extracted_intel[key].extend(new_intel[key])
                     state.extracted_intel[key] = list(dict.fromkeys(state.extracted_intel[key]))
-
             else:
                 state.extracted_intel[key] = new_intel[key]
 
-    # Financial loss attempt detection
-    if any(x in incoming.lower() for x in ['pay', 'upi', 'transfer', 'amount', 
+    if any(x in incoming_for_detection.lower() for x in ['pay', 'upi', 'transfer', 'amount', 
                                             'rupee', 'send money', 'account number']):
         state.financial_loss_attempt = True
     
-    # Generate response
     reply, believability = await agent.generate_response(incoming, history, state)
     
-    # Update conversation state
-    agent.update_state(state, incoming, reply)
+    agent.update_state(state, incoming_for_detection, reply)
     session_store[session_id] = state
     
-    logger.info(f"{state.persona.name} (T{state.turn_count}, B={believability:.2f}): {reply[:60]}...")
+    logger.info(f"{state.persona.name} (T{state.turn_count}, B={believability:.2f}, Lang={lang_name}): {reply[:60]}...")
     
-    # Check if conversation should end
     if agent.should_end_conversation(state):
         logger.info(f"ENDING CONVERSATION: {session_id}")
         await send_final_callback(session_id, state)
     
     return JSONResponse(content={"status": "success", "reply": reply})
 
-
 @app.get("/")
 async def root():
     return {
-        "service": "ULTIMATE Agentic Honey-Pot API v4.0",
-        "version": "4.0.0-EDGE-CASE-HARDENED",
+        "service": "ULTIMATE Agentic Honey-Pot API v5.0",
+        "version": "5.0.0-PRODUCTION",
         "status": "active",
         "features": [
             "Multi-layer scam detection",
             "3 Realistic personas",
             "Advanced intelligence extraction",
-            "Multi-language support",
+            "Multi-language support (Hindi, Tamil, Telugu, Kannada)",
+            "Same-language responses",
+            "Enhanced legitimate message detection",
             "HTTP/HTTPS URL security analysis",
             "Cipher detection",
             "Rate limiting",
@@ -2042,7 +2054,8 @@ async def health_check():
             "rate_limiter": "active",
             "language_handler": language_handler.translator_type or "unavailable",
             "url_analyzer": "active",
-            "cipher_detector": "active"
+            "cipher_detector": "active",
+            "legitimate_detector": "enhanced"
         }
     }
 
@@ -2079,6 +2092,11 @@ async def get_metrics(x_api_key: str = Header(..., alias="x-api-key")):
         for s in session_store.values()
     )
     
+    language_stats = {}
+    for s in session_store.values():
+        lang = s.language_name
+        language_stats[lang] = language_stats.get(lang, 0) + 1
+    
     return {
         "total_sessions": len(session_store),
         "active": sum(1 for s in session_store.values() if not s.callback_sent),
@@ -2097,7 +2115,8 @@ async def get_metrics(x_api_key: str = Header(..., alias="x-api-key")):
             "Rajeshwari": sum(1 for s in session_store.values() if s.persona.name == "Rajeshwari"),
             "Arjun": sum(1 for s in session_store.values() if s.persona.name == "Arjun Mehta"),
             "Priya": sum(1 for s in session_store.values() if s.persona.name == "Priya Sharma")
-        }
+        },
+        "languages": language_stats
     }
 
 @app.get("/admin/threat-intelligence")
@@ -2116,7 +2135,6 @@ async def threat_intel(x_api_key: str = Header(..., alias="x-api-key")):
         upis.extend(s.extracted_intel.get('upiIds', []))
         phones.extend(s.extracted_intel.get('phoneNumbers', []))
         
-        # Collect high-risk URLs
         for url_analysis in s.extracted_intel.get('urlRiskAnalysis', []):
             if url_analysis.get('risk_score', 0) >= 70:
                 high_risk_urls.append(url_analysis)
@@ -2146,7 +2164,7 @@ async def threat_intel(x_api_key: str = Header(..., alias="x-api-key")):
         "sessions": len(session_store),
         "totalThreats": sum(categories.values()),
         "coordinatedDomains": coordinated_threats,
-        "highRiskUrls": high_risk_urls[:10]  # Top 10 highest risk
+        "highRiskUrls": high_risk_urls[:10]
     }
 
 @app.get("/admin/report/{session_id}")
@@ -2166,6 +2184,7 @@ async def scam_report(session_id: str, x_api_key: str = Header(..., alias="x-api
         "confidence": state.detection_confidence,
         "escalationStage": state.escalation_stage,
         "financialAttempt": state.financial_loss_attempt,
+        "detectedLanguage": state.language_name,
         "extractedIntelligence": state.extracted_intel,
         "conversationNotes": state.conversation_notes,
         "socialEngineeringTactics": getattr(state, "social_engineering", []),
@@ -2184,6 +2203,7 @@ async def explain_session(session_id: str, x_api_key: str = Header(..., alias="x
     return {
         "persona": state.persona.name,
         "category": state.scam_category.value,
+        "language": state.language_name,
         "turns": state.turn_count,
         "escalation_stage": state.escalation_stage,
         "trust_level": state.trust_level,
@@ -2197,9 +2217,8 @@ async def explain_session(session_id: str, x_api_key: str = Header(..., alias="x
             "links": len(state.extracted_intel.get('phishingLinks', [])),
             "url_risk": state.extracted_intel.get('domainRiskScore', 0)
         },
-        "notes": state.conversation_notes[-5:]  # Last 5 notes
+        "notes": state.conversation_notes[-5:]
     }
-
 
 if __name__ == "__main__":
     import uvicorn
