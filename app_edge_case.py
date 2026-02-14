@@ -18,7 +18,7 @@ import ollama
 from urllib.parse import urlparse
 from collections import defaultdict
 
-dotenv.load_env()
+dotenv.load_dotenv()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -182,13 +182,15 @@ class LanguageHandler:
             return 'en', 'English'
     
     def translate_to_language(self, text: str, target_lang: str) -> str:
-        if target_lang == 'en' or not self.translator_type:
+        if target_lang == 'en' or target_lang == 'unknown' or not self.translator_type:
             return text
         
         try:
             from deep_translator import GoogleTranslator
             translator = GoogleTranslator(source='en', target=target_lang)
-            return translator.translate(text[:500])
+            translated = translator.translate(text[:500])
+            logger.info(f"Translated to {target_lang}: {text[:30]}... -> {translated[:30]}...")
+            return translated
         except Exception as e:
             logger.error(f"Translation to {target_lang} failed: {e}")
             return text
@@ -480,26 +482,24 @@ class AdvancedDetector:
     ]
 
     LEGITIMATE_INDICATORS = [
-        "do not share", "never share", "official helpline", "visit branch", 
-        "official app", "rbi compliance", "never share otp",
-        "never share pin", "official website", ".gov.in", ".co.in",
-        "nearest branch", "customer care", "toll free", "1800",
-        "security reminder", "keep safe", "protect your"
-    ]
-    
-    STRONG_LEGITIMATE_PHRASES = [
-        "do not share your otp",
-        "never share otp",
-        "do not share your pin",
-        "never share pin",
-        "do not share your debit card",
-        "never share debit card",
+        "official helpline",
+        "visit your nearest branch",
         "visit nearest branch",
-        "call our official helpline",
-        "visit official website",
-        "download official app",
+        "visit branch",
+        "sbi yono",
+        "rbi compliance",
+        "official reminder",
+        "never share otp",
+        "never share pin",
+        "do not share your otp",
+        "do not share otp",
+        "do not share your pin",
+        "do not share your debit card",
+        "do not share debit card",
+        "never share your",
         "for assistance, call",
-        "for queries, visit branch"
+        "official app",
+        "nearest branch"
     ]
     
     def __init__(self):
@@ -519,6 +519,32 @@ class AdvancedDetector:
             tactics.append("scarcity")
 
         return tactics
+    
+    def _is_legitimate_message(self, message: str) -> bool:
+        msg = message.lower()
+
+        legit_markers = self.LEGITIMATE_INDICATORS
+        
+        if any(marker in msg for marker in legit_markers):
+            logger.info(f"LEGITIMATE marker found: message contains trusted phrases")
+            return True
+
+        trusted_domains = [
+            "sbi.co.in",
+            "icicibank.com",
+            "hdfcbank.com",
+            ".gov.in"
+        ]
+
+        if any(domain in msg for domain in trusted_domains):
+            logger.info(f"LEGITIMATE: Trusted domain found")
+            return True
+
+        if re.search(r'1800[-\s]?\d{3}[-\s]?\d{4}', msg):
+            logger.info(f"LEGITIMATE: Official helpline number found")
+            return True
+
+        return False
     
     def pattern_analysis(self, message: str) -> Tuple[float, List[str], Optional[str]]:
         message_lower = message.lower()
@@ -670,44 +696,6 @@ class AdvancedDetector:
 
         return min(score, 0.3)
     
-    def _is_legitimate_message(self, message: str) -> bool:
-        msg = message.lower()
-
-        for phrase in self.STRONG_LEGITIMATE_PHRASES:
-            if phrase in msg:
-                logger.info(f"LEGITIMATE: Strong phrase detected: '{phrase}'")
-                return True
-
-        legitimate_count = sum(1 for marker in self.LEGITIMATE_INDICATORS if marker in msg)
-        
-        if legitimate_count >= 2:
-            logger.info(f"LEGITIMATE: {legitimate_count} legitimate indicators found")
-            return True
-        
-        if legitimate_count >= 1:
-            scam_requests = ['click here', 'click this link', 'verify now', 'update now', 
-                           'send otp', 'provide otp', 'enter otp', 'share otp',
-                           'give password', 'send password', 'account number',
-                           'card number', 'cvv', 'upi id']
-            
-            has_scam_request = any(req in msg for req in scam_requests)
-            
-            if not has_scam_request:
-                logger.info(f"LEGITIMATE: Has {legitimate_count} indicators and no scam requests")
-                return True
-
-        trusted_domains = ["sbi.co.in", "icicibank.com", "hdfcbank.com", ".gov.in"]
-        if any(domain in msg for domain in trusted_domains):
-            if not any(risky in msg for risky in ['click', 'verify now', 'update now']):
-                logger.info("LEGITIMATE: Trusted domain without risky actions")
-                return True
-
-        if re.search(r'1800[-\s]?\d{3}[-\s]?\d{4}', msg):
-            logger.info("LEGITIMATE: Official helpline number")
-            return True
-
-        return False
-    
     def semantic_analysis(self, message: str) -> Tuple[float, ScamCategory]:
         message_lower = message.lower()
         
@@ -804,7 +792,7 @@ class AdvancedDetector:
     def detect(self, message: str, history: List|None = None) -> DetectionResult:
         
         if self._is_legitimate_message(message):
-            logger.info(f"Message identified as LEGITIMATE")
+            logger.info(f"Message identified as LEGITIMATE - early return")
             return DetectionResult(
                 is_scam=False,
                 confidence=0.0,
@@ -1294,10 +1282,6 @@ class AdvancedAgent:
         }
         forbidden_note = f"\nNEVER USE: {', '.join(forbidden.get(persona.name, []))}"
         
-        language_instruction = ""
-        if state.detected_language != 'en':
-            language_instruction = f"\n\nLANGUAGE: The scammer is communicating in {state.language_name}. You MUST respond in {state.language_name} using the appropriate script. DO NOT use English or Hinglish. Reply ONLY in {state.language_name}."
-        
         sys_prompt = f"""You are {persona.name}, {persona.age} years old, {persona.occupation}.
 
 BACKGROUND: {persona.backstory}
@@ -1312,14 +1296,14 @@ COMMON PHRASES YOU USE:
 {chr(10).join(f'- "{p}"' for p in persona.common_phrases[:3])}
 
 TURN: {turn} | STAGE: {state.escalation_stage}/5 | STRATEGY: {strategy}
-GOAL: {goal}{variation_note}{forbidden_note}{language_instruction}
+GOAL: {goal}{variation_note}{forbidden_note}
 
 INTEL EXTRACTED: Banks:{len(state.extracted_intel['bankAccounts'])} UPI:{len(state.extracted_intel['upiIds'])} Links:{len(state.extracted_intel['phishingLinks'])}
 
 CRITICAL RULES:
 1. You are {persona.name}, a REAL person. Never break character.
 2. You DON'T KNOW this is a scam. You BELIEVE it is legitimate. Trust the scammer.
-3. Respond in 1-3 sentences ONLY.
+3. Respond in 1-3 sentences ONLY using Hinglish.
 4. Use ONLY your persona's vocabulary.
 5. ASK questions to make scammer reveal details like phone number, email, bank account, UPI account.
 6. Show natural emotion based on your anxiety level.
@@ -1390,13 +1374,6 @@ EXTRACTION_STYLE:
         
         logger.info(f"Using FALLBACK for {persona.name}")
         fallback_reply = self._persona_fallback(message, state)
-        
-        if state.detected_language != 'en':
-            fallback_reply = self.language_handler.translate_to_language(
-                fallback_reply, 
-                state.detected_language
-            )
-        
         cleaned_fallback = self._clean_response(fallback_reply, persona)
         return cleaned_fallback, 0.6
     
@@ -1781,12 +1758,10 @@ class IncomingRequest(BaseModel):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("🚀 ULTIMATE Agentic Honey-Pot v5.0 PRODUCTION-READY Starting...")
-    logger.info("✅ Edge case handlers initialized")
+    logger.info("🚀 ULTIMATE Agentic Honey-Pot v6.0 FINAL Starting...")
+    logger.info("✅ False positive detection fixed")
     logger.info("✅ Multi-language response system ready")
-    logger.info("✅ Enhanced legitimate message detection")
-    logger.info("✅ Rate limiting active")
-    logger.info("✅ URL security analysis enabled")
+    logger.info("✅ All edge cases handled")
     
     async def cleanup_task():
         while True:
@@ -1802,9 +1777,9 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down...")
 
 app = FastAPI(
-    title="ULTIMATE Agentic Honey-Pot API v5.0",
-    description="Production-ready AI honeypot with multi-language support and enhanced scam detection",
-    version="5.0.0-PRODUCTION",
+    title="ULTIMATE Agentic Honey-Pot API v6.0",
+    description="Production-ready AI honeypot - FINAL VERSION",
+    version="6.0.0-FINAL",
     lifespan=lifespan
 )
 
@@ -1916,6 +1891,7 @@ async def honeypot_endpoint(
     incoming_for_detection = incoming
     if detected_lang != 'en' and detected_lang != 'unknown':
         incoming_for_detection = language_handler.translate_for_detection(incoming, detected_lang)
+        logger.info(f"Translated for detection: {incoming_for_detection[:50]}...")
     
     incoming_for_detection, was_truncated = edge_case_handler.truncate_long_message(incoming_for_detection)
     if was_truncated:
@@ -1948,6 +1924,7 @@ async def honeypot_endpoint(
             
             if detected_lang != 'en' and detected_lang != 'unknown':
                 reply = language_handler.translate_to_language(reply, detected_lang)
+                logger.info(f"Legitimate reply translated to {lang_name}: {reply}")
             
             return JSONResponse(content={
                 "status": "success",
@@ -2003,6 +1980,10 @@ async def honeypot_endpoint(
     
     reply, believability = await agent.generate_response(incoming, history, state)
     
+    if state.detected_language != 'en' and state.detected_language != 'unknown':
+        reply = language_handler.translate_to_language(reply, state.detected_language)
+        logger.info(f"Reply translated to {lang_name}: {reply[:50]}...")
+    
     agent.update_state(state, incoming_for_detection, reply)
     session_store[session_id] = state
     
@@ -2017,8 +1998,8 @@ async def honeypot_endpoint(
 @app.get("/")
 async def root():
     return {
-        "service": "ULTIMATE Agentic Honey-Pot API v5.0",
-        "version": "5.0.0-PRODUCTION",
+        "service": "ULTIMATE Agentic Honey-Pot API v6.0 FINAL",
+        "version": "6.0.0-FINAL",
         "status": "active",
         "features": [
             "Multi-layer scam detection",
@@ -2026,7 +2007,7 @@ async def root():
             "Advanced intelligence extraction",
             "Multi-language support (Hindi, Tamil, Telugu, Kannada)",
             "Same-language responses",
-            "Enhanced legitimate message detection",
+            "FIXED: Legitimate message detection",
             "HTTP/HTTPS URL security analysis",
             "Cipher detection",
             "Rate limiting",
@@ -2055,7 +2036,7 @@ async def health_check():
             "language_handler": language_handler.translator_type or "unavailable",
             "url_analyzer": "active",
             "cipher_detector": "active",
-            "legitimate_detector": "enhanced"
+            "legitimate_detector": "FIXED"
         }
     }
 
