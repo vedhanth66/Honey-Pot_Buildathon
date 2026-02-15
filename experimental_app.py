@@ -319,8 +319,11 @@ class SocialEngineeringAnalyzer:
                 reassurance_count += 1
         
         if reassurance_count >= 2:
-            score += 0.30
+            score += 0.55
             indicators.append(f"Repeated reassurance: {reassurance_count} instances")
+        elif reassurance_count >= 1:
+            score += 0.25
+            indicators.append(f"Trust building attempt detected")
         
         return score, indicators
     
@@ -342,12 +345,16 @@ class SocialEngineeringAnalyzer:
         formal_count = sum(1 for pattern in formal_patterns if re.search(pattern, text_lower))
         
         if formal_count >= 2:
-            score += 0.25
+            score += 0.45
             indicators.append("Formal template structure")
         
         if text_lower.startswith('dear customer') or text_lower.startswith('dear sir'):
-            score += 0.20
+            score += 0.35
             indicators.append("Generic salutation")
+        
+        if 'customer care' in text_lower or 'customer support' in text_lower:
+            score += 0.30
+            indicators.append("Impersonating customer service")
         
         return score, indicators
     
@@ -475,8 +482,11 @@ class LinguisticAnalyzer:
         politeness_count = sum(text_lower.count(word) for word in politeness_words)
         
         if politeness_count >= 3:
-            score += 0.25
+            score += 0.50
             indicators.append(f"Excessive politeness: {politeness_count} markers")
+        elif politeness_count >= 2:
+            score += 0.25
+            indicators.append(f"Polite persuasion detected")
         
         return score, indicators
     
@@ -515,7 +525,7 @@ class LinguisticAnalyzer:
         
         for phrase in confidentiality_phrases:
             if phrase in text_lower:
-                score += 0.40
+                score += 0.65
                 indicators.append("Confidentiality manipulation")
                 break
         
@@ -1141,24 +1151,37 @@ class AdvancedDetector:
             "visit your nearest branch",
             "visit nearest branch",
             "never share one time password",
-            "do not share one time password"
+            "do not share one time password",
+            "never share your card details",
+            "do not share card details",
+            "official sbi",
+            "official hdfc",
+            "official icici",
+            "secure banking",
+            "bank never asks"
         ]
         
         for marker in strong_markers:
             if marker in msg_lower or marker in norm_lower:
-                score += 0.3
+                score += 0.5
                 logger.info(f"STRONG legitimate marker: '{marker}'")
         
         trusted_domains = [
             "sbi.co.in",
             "icicibank.com",
             "hdfcbank.com",
-            ".gov.in"
+            "axisbank.com",
+            "pnbindia.in",
+            "bankofbaroda.in",
+            "canarabank.com",
+            "kotak.com",
+            ".gov.in",
+            "rbi.org.in"
         ]
         
         for domain in trusted_domains:
             if domain in msg_lower:
-                score += 0.4
+                score += 0.7
                 logger.info(f"TRUSTED domain: '{domain}'")
         
         if re.search(r'1800[-\s]?\d{3}[-\s]?\d{4}', msg_lower):
@@ -1433,9 +1456,17 @@ class AdvancedDetector:
         
         normalized_message = self.text_normalizer.normalize_aggressive(message)
         
+        if normalized_message != message:
+            obfuscation_indicators = sum(1 for c in message if c in '01345789@$!|')
+            if obfuscation_indicators >= 2:
+                pattern_score += 0.25
+                indicators.append(f"CHARACTER_SUBSTITUTION: {obfuscation_indicators} leet chars")
+        
         has_fragments, fragments = self.text_normalizer.detect_word_fragments(message)
         if has_fragments:
             logger.warning(f"Word fragments detected: {fragments}")
+            pattern_score += 0.35
+            indicators.append(f"WORD_FRAGMENTS: {len(fragments)} obfuscated terms")
         
         is_reversed, reversed_text = self.text_normalizer.detect_reverse_text(message)
         if is_reversed:
@@ -1580,18 +1611,21 @@ class AdvancedDetector:
         
         final_confidence = raw_confidence
         
-        if legitimacy_score >= 0.8 and raw_confidence < 0.4:
-            final_confidence = raw_confidence * 0.3
+        if legitimacy_score >= 0.8 and raw_confidence < 0.6:
+            final_confidence = raw_confidence * 0.05
             indicators.append(f"LEGITIMATE_DAMPENING: -{legitimacy_score:.2f}")
             logger.info(f"Legitimate dampening applied: {raw_confidence:.3f} → {final_confidence:.3f}")
-        elif legitimacy_score >= 0.6 and raw_confidence < 0.5:
-            final_confidence = raw_confidence * 0.6
+        elif legitimacy_score >= 0.6 and raw_confidence < 0.7:
+            final_confidence = raw_confidence * 0.15
             indicators.append(f"PARTIAL_DAMPENING: -{legitimacy_score:.2f}")
+        elif legitimacy_score >= 0.4 and raw_confidence < 0.5:
+            final_confidence = raw_confidence * 0.4
+            indicators.append(f"LIGHT_DAMPENING: -{legitimacy_score:.2f}")
 
-        if final_confidence >= 0.30:
+        if final_confidence >= 0.12:
             is_scam = True
-        elif final_confidence >= 0.20:
-            is_scam = (context_score > 0.2) or (urgency > 0.4) or (pattern_score > 0.3) or (semantic_score > 0.3)
+        elif final_confidence >= 0.08:
+            is_scam = (context_score > 0.1) or (urgency > 0.2) or (pattern_score > 0.15) or (semantic_score > 0.15)
         else:
             is_scam = False
         
@@ -2863,7 +2897,7 @@ async def honeypot_endpoint(
         state = None
 
     if state is None:
-        if detection.confidence < 0.10:
+        if detection.confidence < 0.05:
             logger.info(f"Very low confidence ({detection.confidence:.3f}) - treating as legitimate")
             
             msg_lower = incoming_for_detection.lower()
