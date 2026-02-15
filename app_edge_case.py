@@ -1287,6 +1287,7 @@ class AdvancedAgent:
 BACKGROUND: {persona.backstory}
 
 Your job is to ASK questions to make scammer reveal ONLY 4 SPECIFIC details: phone number, email, bank account, UPI account. You NEED to do this WITHOUT revealing you are collecting details. 
+NEVER SHARE ANY OF YOUR PERSONAL INFO.
 
 TRAITS:
 - Tech: {persona.tech_savviness}/10, Gullible: {persona.gullibility}/10, Anxious: {persona.anxiety_level}/10
