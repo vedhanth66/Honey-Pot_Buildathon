@@ -1456,6 +1456,10 @@ class AdvancedDetector:
         
         normalized_message = self.text_normalizer.normalize_aggressive(message)
         
+        pattern_score, indicators, impersonation = self.pattern_analysis(message, normalized_message)
+        semantic_score, category = self.semantic_analysis(normalized_message)
+        linguistic_score = self.detect_linguistic_anomaly(message)
+
         if normalized_message != message:
             obfuscation_indicators = sum(1 for c in message if c in '01345789@$!|')
             if obfuscation_indicators >= 2:
@@ -1472,10 +1476,6 @@ class AdvancedDetector:
         if is_reversed:
             logger.warning(f"Reversed text detected: {reversed_text}")
             message = reversed_text
-        
-        pattern_score, indicators, impersonation = self.pattern_analysis(message, normalized_message)
-        semantic_score, category = self.semantic_analysis(normalized_message)
-        linguistic_score = self.detect_linguistic_anomaly(message)
         
         numeric_score, numeric_indicators = self.pattern_detector.detect_numerical_abuse(message)
         if numeric_score > 0:
