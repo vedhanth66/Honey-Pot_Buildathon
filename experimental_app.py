@@ -2970,7 +2970,7 @@ async def honeypot_endpoint(
 @app.get("/")
 async def root():
     return {
-        "service": "ULTIMATE Agentic Honey-Pot API v7.0 - COMPETITION EDITION",
+        "service": "Agentic Honey-Pot API",
         "version": "7.0.0-FINAL",
         "status": "active",
         "improvements_implemented": 35,
