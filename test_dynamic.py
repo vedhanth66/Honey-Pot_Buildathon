@@ -49,6 +49,7 @@ def generate_memory() -> Dict:
     return {
         "fake_name": random.choice(["Amit", "Rohit", "Neha", "Kavita"]),
         "employee_id": f"EMP{random.randint(10000, 99999)}",
+        "bank_account_number": f"{random.randint(10000000, 99999999)}",
         "callback_number": f"+91{random.randint(7000000000, 9999999999)}",
         "phishing_url": url,
         "upi_id": random.choice([
