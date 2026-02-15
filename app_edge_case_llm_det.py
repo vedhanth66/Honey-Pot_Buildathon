@@ -1683,19 +1683,19 @@ EXTRACTION_STYLE:
                 return pick_unique(responses['default'])
         
     def should_end_conversation(self, state: ConversationState) -> bool:
-        intel = state.extracted_intel
-        turn = state.turn_count
+        if state.turn_count == 10:
+            return True
         
-        has_critical = (
-            len(intel['bankAccounts']) >= 1 or
-            len(intel['upiIds']) >= 1 or
-            (len(intel['phishingLinks']) >= 2 and len(intel['phoneNumbers']) >= 1)
-        )
+        # has_critical = (
+        #     len(intel['bankAccounts']) >= 1 or
+        #     len(intel['upiIds']) >= 1 or
+        #     (len(intel['phishingLinks']) >= 2 and len(intel['phoneNumbers']) >= 1)
+        # )
         
-        sufficient_length = turn >= 12
-        good_progress = turn >= 8 and (len(intel['phoneNumbers']) >= 1 or len(intel['phishingLinks']) >= 1)
+        # sufficient_length = turn >= 12
+        # good_progress = turn >= 8 and (len(intel['phoneNumbers']) >= 1 or len(intel['phishingLinks']) >= 1)
         
-        return has_critical or sufficient_length or good_progress
+        # return has_critical or sufficient_length or good_progress
     
     def update_state(self, state: ConversationState, scammer_msg: str, agent_reply: str):
         state.turn_count += 1
@@ -1780,6 +1780,11 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+from pydantic import BaseModel
+
+class IsScammer(BaseModel):
+    is_scammer: float
+
 async def send_final_callback(session_id: str, history: List[Message], state: ConversationState):
     if state.callback_sent:
         logger.info(f"Callback already sent for {session_id}")
@@ -1789,6 +1794,23 @@ async def send_final_callback(session_id: str, history: List[Message], state: Co
     for msg in history:
         if msg.sender == "scammer":
             prompt += msg.text + "\n" + "-"*5 + "\n"
+
+    sys_prompt = "You are a Service Worker, working under the Cyber Security Police. Your job is to read Convorsations from potential scammers, and return a SINGLE float number as the output that represents the Potential that the convorsation was a Scam or not, where 1.0 means that the convo was a suspected scam, and 0.0 means that the convo is definately not spam."
+    resp = ollama.generate(OLLAMA_MODEL, sys_prompt, format=IsScammer.model_json_schema())
+    generated_text = resp.response
+
+    try:
+        # Parse the JSON string
+        data = json.loads(generated_text)
+        # Access the float value
+        scam_score = data["is_scammer"]
+        print(f"Scam probability: {scam_score}")
+    except (json.JSONDecodeError, KeyError) as e:
+        print(f"Failed to parse response: {e}")
+
+    print("SCAM SCORE:", scam_score)
+
+    state.detection_confidence = scam_score
     
     if state.detection_confidence >= 0.6:
         sys_prompt = f"You are a journalist. You are provided a conversation snippet of a Scammer trying to scam a user. Your Job is to summarize the exact intent of the scammer into 1 to 5 lines. DO NOT decorate words with symbols like *, \". Also provide all the details the scammer has provided. DO NOT overflow. STAY WITHIN 5 LINES. Content: \n{prompt}. Scammer details extracted: {str(state.extracted_intel)}"
