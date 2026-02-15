@@ -7,8 +7,8 @@ from datetime import datetime
 
 # API_URL = "https://honeypotbuildathon.vercel.app/"  
 # HEALTH_URL = "https://honeypotbuildathon.vercel.app/health"
-API_URL = "http://localhost:8080/"  
-HEALTH_URL = "http://localhost:8080/health"
+API_URL = 'https://tensortitansbuildathon.xyz/'
+HEALTH_URL = API_URL + "health"
 API_KEY = "Honey-Pot_Buildathon-123456"
 
 class Colors:
