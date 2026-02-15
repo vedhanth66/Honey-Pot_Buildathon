@@ -32,7 +32,6 @@ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma3:4b-it-qat")
 CALLBACK_URL = "https://hackathon.guvi.in/api/updateHoneyPotFinalResult"
 
 class AdvancedTextNormalizer:
-    """Handles all text obfuscation techniques"""
     
     HOMOGRAPH_MAP = {
         'а': 'a', 'е': 'e', 'і': 'i', 'о': 'o', 'р': 'p', 'с': 'c', 'у': 'y', 'х': 'x',
@@ -47,7 +46,6 @@ class AdvancedTextNormalizer:
     
     @staticmethod
     def normalize_aggressive(text: str) -> str:
-        """Apply all normalization techniques"""
         if not text:
             return text
         
@@ -60,6 +58,10 @@ class AdvancedTextNormalizer:
         
         text = unicodedata.normalize('NFKD', text)
         text = ''.join(char for char in text if unicodedata.category(char) != 'Cf')
+        
+        text = re.sub(r'one\s+time\s+password', 'otp', text, flags=re.IGNORECASE)
+        text = re.sub(r'one-time\s+password', 'otp', text, flags=re.IGNORECASE)
+        text = re.sub(r'onetime\s+password', 'otp', text, flags=re.IGNORECASE)
         
         text = re.sub(r'(\w)\s+(\w)\s+(\w)', r'\1\2\3', text)
         text = re.sub(r'(\w)\s+(\w)', r'\1\2', text)
@@ -80,7 +82,6 @@ class AdvancedTextNormalizer:
     
     @staticmethod
     def detect_word_fragments(text: str) -> Tuple[bool, List[str]]:
-        """IMPROVEMENT 2: Detect 'ver ify' → 'verify' patterns"""
         suspicious_keywords = [
             'verify', 'urgent', 'account', 'password', 'otp', 'bank', 
             'blocked', 'suspended', 'click', 'link', 'prize', 'won'
@@ -97,7 +98,6 @@ class AdvancedTextNormalizer:
     
     @staticmethod
     def detect_reverse_text(text: str) -> Tuple[bool, str]:
-        """IMPROVEMENT 3: Detect reversed malicious text"""
         if len(text) > 50:
             return False, ""
         
@@ -125,11 +125,9 @@ class ScamCategory(Enum):
     UNKNOWN = "unknown"
 
 class AdvancedPatternDetector:
-    """Enhanced pattern detection with multiple sophisticated checks"""
     
     @staticmethod
     def detect_numerical_abuse(text: str) -> Tuple[float, List[str]]:
-        """IMPROVEMENT 7: Detect unusual numeric patterns"""
         indicators = []
         score = 0.0
         
@@ -156,7 +154,6 @@ class AdvancedPatternDetector:
     
     @staticmethod
     def detect_linkless_phishing(text: str) -> Tuple[float, List[str]]:
-        """IMPROVEMENT 8: Detect callback phishing without URLs"""
         indicators = []
         score = 0.0
         
@@ -181,7 +178,6 @@ class AdvancedPatternDetector:
     
     @staticmethod
     def detect_missed_call_scam(text: str) -> Tuple[float, ScamCategory]:
-        """IMPROVEMENT 9: Special category for missed call scams"""
         missed_call_keywords = [
             'missed call', 'give missed call', 'dial and disconnect',
             'flash call', 'ring back', 'call back urgently',
@@ -198,7 +194,6 @@ class AdvancedPatternDetector:
     
     @staticmethod
     def detect_payment_psychology(text: str) -> Tuple[float, List[str]]:
-        """IMPROVEMENT 10: Small fee/deposit scams"""
         indicators = []
         score = 0.0
         
@@ -218,7 +213,6 @@ class AdvancedPatternDetector:
     
     @staticmethod
     def detect_legal_threats(text: str) -> Tuple[float, List[str]]:
-        """IMPROVEMENT 11: Legal escalation detection"""
         indicators = []
         score = 0.0
         
@@ -248,11 +242,9 @@ class AdvancedPatternDetector:
         return min(score, 1.0), indicators
 
 class SocialEngineeringAnalyzer:
-    """Detects sophisticated manipulation techniques"""
     
     @staticmethod
     def detect_fake_verification(text: str) -> Tuple[float, List[str]]:
-        """IMPROVEMENT 12: Identity verification phishing"""
         indicators = []
         score = 0.0
         
@@ -275,7 +267,6 @@ class SocialEngineeringAnalyzer:
     
     @staticmethod
     def detect_sequencing(history: List, current_message: str) -> Tuple[float, List[str]]:
-        """IMPROVEMENT 13: Social engineering sequence tracking"""
         if not history or len(history) < 2:
             return 0.0, []
         
@@ -312,7 +303,6 @@ class SocialEngineeringAnalyzer:
     
     @staticmethod
     def detect_trust_building(history: List) -> Tuple[float, List[str]]:
-        """IMPROVEMENT 14: Multi-turn grooming detection"""
         if not history or len(history) < 3:
             return 0.0, []
         
@@ -336,7 +326,6 @@ class SocialEngineeringAnalyzer:
     
     @staticmethod
     def detect_formal_template(text: str) -> Tuple[float, List[str]]:
-        """IMPROVEMENT 15: Template scam detection"""
         indicators = []
         score = 0.0
         
@@ -364,7 +353,6 @@ class SocialEngineeringAnalyzer:
     
     @staticmethod
     def detect_placeholders(text: str) -> Tuple[float, List[str]]:
-        """IMPROVEMENT 16: Generic placeholder detection"""
         indicators = []
         score = 0.0
         
@@ -385,7 +373,6 @@ class SocialEngineeringAnalyzer:
     
     @staticmethod
     def detect_countdown_manipulation(text: str) -> Tuple[float, List[str]]:
-        """IMPROVEMENT 17: Countdown psychology"""
         indicators = []
         score = 0.0
         
@@ -408,11 +395,9 @@ class SocialEngineeringAnalyzer:
         return score, indicators
 
 class LinguisticAnalyzer:
-    """Analyzes language patterns and inconsistencies"""
     
     @staticmethod
     def detect_tone_inconsistency(text: str) -> Tuple[float, List[str]]:
-        """IMPROVEMENT 18: Professional → casual tone shift"""
         indicators = []
         score = 0.0
         
@@ -433,7 +418,6 @@ class LinguisticAnalyzer:
     
     @staticmethod
     def detect_authority_reward_combo(text: str) -> Tuple[float, List[str]]:
-        """IMPROVEMENT 19: Authority + reward combination"""
         indicators = []
         score = 0.0
         
@@ -455,7 +439,6 @@ class LinguisticAnalyzer:
     
     @staticmethod
     def detect_phrase_combinations(text: str) -> Tuple[float, List[str]]:
-        """IMPROVEMENT 20: High-risk phrase combinations"""
         indicators = []
         score = 0.0
         
@@ -482,7 +465,6 @@ class LinguisticAnalyzer:
     
     @staticmethod
     def detect_politeness_masking(text: str) -> Tuple[float, List[str]]:
-        """IMPROVEMENT 24: Overuse of politeness"""
         indicators = []
         score = 0.0
         
@@ -500,7 +482,6 @@ class LinguisticAnalyzer:
     
     @staticmethod
     def detect_structured_instructions(text: str) -> Tuple[float, List[str]]:
-        """IMPROVEMENT 26: Step-by-step instruction detection"""
         indicators = []
         score = 0.0
         
@@ -520,7 +501,6 @@ class LinguisticAnalyzer:
     
     @staticmethod
     def detect_confidentiality_manipulation(text: str) -> Tuple[float, List[str]]:
-        """IMPROVEMENT 29: "Don't tell anyone" detection"""
         indicators = []
         score = 0.0
         
@@ -542,13 +522,11 @@ class LinguisticAnalyzer:
         return score, indicators
 
 class ContextIntelligenceAnalyzer:
-    """Advanced context and behavioral analysis"""
     
     def __init__(self):
         self.session_fingerprints = defaultdict(list)
     
     def generate_template_fingerprint(self, text: str) -> str:
-        """IMPROVEMENT 21: Scam template fingerprinting"""
         keywords = ['urgent', 'bank', 'account', 'otp', 'verify', 'click', 
                    'prize', 'won', 'refund', 'blocked']
         
@@ -566,7 +544,6 @@ class ContextIntelligenceAnalyzer:
         return structure
     
     def detect_clustered_attack(self, session_id: str, fingerprint: str) -> Tuple[bool, int]:
-        """Check if same template used across sessions"""
         self.session_fingerprints[fingerprint].append(session_id)
         
         count = len(self.session_fingerprints[fingerprint])
@@ -579,7 +556,6 @@ class ContextIntelligenceAnalyzer:
     
     @staticmethod
     def detect_compliance_escalation(history: List, current_message: str) -> Tuple[float, List[str]]:
-        """IMPROVEMENT 22: Track victim compliance → more requests"""
         if not history or len(history) < 2:
             return 0.0, []
         
@@ -606,7 +582,6 @@ class ContextIntelligenceAnalyzer:
     
     @staticmethod
     def calculate_suspicion_momentum(history: List, current_score: float) -> Tuple[float, List[str]]:
-        """IMPROVEMENT 23: Rate of suspicion increase"""
         if not history or len(history) < 2:
             return 0.0, []
         
@@ -626,7 +601,6 @@ class ContextIntelligenceAnalyzer:
     
     @staticmethod
     def detect_url_context_mismatch(text: str, urls: List[str]) -> Tuple[float, List[str]]:
-        """IMPROVEMENT 25: URL domain vs message topic mismatch"""
         if not urls:
             return 0.0, []
         
@@ -666,7 +640,6 @@ class ContextIntelligenceAnalyzer:
     
     @staticmethod
     def calculate_money_urgency_ratio(text: str) -> Tuple[float, List[str]]:
-        """IMPROVEMENT 27: Amount + urgency + action detection"""
         indicators = []
         score = 0.0
         
@@ -687,12 +660,11 @@ class ContextIntelligenceAnalyzer:
     
     @staticmethod
     def detect_contradiction(text: str) -> Tuple[float, List[str]]:
-        """IMPROVEMENT 30: Logical contradiction detection"""
         indicators = []
         score = 0.0
         
         contradictions = [
-            (['rbi', 'reserve bank'], ['otp', 'password', 'pin'], 
+            (['rbi', 'reserve bank'], ['otp', 'password', 'pin', 'one time password'], 
              "RBI never asks for OTP/password"),
             
             (['bank', 'official'], ['whatsapp', 'telegram'], 
@@ -722,7 +694,6 @@ class ContextIntelligenceAnalyzer:
     
     @staticmethod
     def calculate_turn_depth_risk(turn_number: int, sensitive_request: bool) -> float:
-        """IMPROVEMENT 31: Late-stage sensitive requests"""
         if not sensitive_request:
             return 0.0
         
@@ -735,7 +706,6 @@ class ContextIntelligenceAnalyzer:
     
     @staticmethod
     def detect_scam_lifecycle_stage(history: List, current_message: str) -> Tuple[str, float]:
-        """IMPROVEMENT 32: Lifecycle modeling"""
         stages = {
             'reconnaissance': 0.1, 
             'grooming': 0.2,
@@ -746,7 +716,7 @@ class ContextIntelligenceAnalyzer:
         
         text_lower = current_message.lower()
         
-        if any(w in text_lower for w in ['pay', 'send', 'transfer', 'otp', 'password', 'cvv']):
+        if any(w in text_lower for w in ['pay', 'send', 'transfer', 'otp', 'password', 'cvv', 'one time password']):
             return 'exploitation', stages['exploitation']
         
         elif any(w in text_lower for w in ['account number', 'details', 'information', 'provide']):
@@ -762,7 +732,6 @@ class ContextIntelligenceAnalyzer:
     
     @staticmethod
     def detect_keyword_proximity(text: str) -> Tuple[float, List[str]]:
-        """IMPROVEMENT 34: Keywords appearing close together"""
         indicators = []
         score = 0.0
         
@@ -811,7 +780,6 @@ class EdgeCaseHandler:
     
     @staticmethod
     def is_empty_or_too_short(message: str) -> Tuple[bool, Optional[str]]:
-        """IMPROVEMENT 4: Better handling of short messages"""
         if not message or len(message.strip()) == 0:
             return True, "I didn't receive any message. Could you please try again?"
         
@@ -1092,12 +1060,11 @@ class DetectionResult:
     advanced_scores: Dict[str, float] = field(default_factory=dict)
 
 class AdvancedDetector:
-    """MASSIVELY ENHANCED with all 35 improvements"""
     
     CRITICAL_PATTERNS = {
         'upi_request': r'\b(upi|phone\s*pe|google\s*pay|paytm|gpay|bhim)\b',
         'account_request': r'\b(account|acc)\b\s*\w*\s*\b(number|no|details|balance|blocked|frozen)\b',
-        'otp_request': r'\b(otp|pin|cvv|password|code)\b',
+        'otp_request': r'\b(otp|pin|cvv|password|code|one\s+time\s+password)\b',
         'bank_impersonation': r'\b(sbi|hdfc|icici|axis|pnb|bob|canara|union|kotak)\b',
         'govt_impersonation': r'\b(income\s*tax|itr|gst|aadhaar|pan\s*card|rbi|police|court)\b',
         'urgent_threat': r'\b(block|suspend|expire|deactivate|terminate|close|freeze|lock)\w*\b',
@@ -1134,7 +1101,9 @@ class AdvancedDetector:
         "never share your",
         "for assistance, call",
         "official app",
-        "nearest branch"
+        "nearest branch",
+        "never share one time password",
+        "do not share one time password"
     ]
     
     def __init__(self):
@@ -1159,43 +1128,56 @@ class AdvancedDetector:
 
         return tactics
     
-    def _is_legitimate_message(self, message: str) -> bool:
-        """IMPROVEMENT 33: Enhanced false positive dampening"""
-        msg = message.lower()
-
-        legit_markers = self.LEGITIMATE_INDICATORS
+    def _calculate_legitimacy_score(self, message: str, normalized_message: str) -> float:
+        score = 0.0
+        msg_lower = message.lower()
+        norm_lower = normalized_message.lower()
         
-        if any(marker in msg for marker in legit_markers):
-            logger.info(f"LEGITIMATE marker found: message contains trusted phrases")
-            return True
-
+        strong_markers = [
+            "never share otp",
+            "never share pin",
+            "do not share your otp",
+            "do not share your password",
+            "visit your nearest branch",
+            "visit nearest branch",
+            "never share one time password",
+            "do not share one time password"
+        ]
+        
+        for marker in strong_markers:
+            if marker in msg_lower or marker in norm_lower:
+                score += 0.3
+                logger.info(f"STRONG legitimate marker: '{marker}'")
+        
         trusted_domains = [
             "sbi.co.in",
             "icicibank.com",
             "hdfcbank.com",
             ".gov.in"
         ]
-
-        if any(domain in msg for domain in trusted_domains):
-            logger.info(f"LEGITIMATE: Trusted domain found")
-            return True
-
-        if re.search(r'1800[-\s]?\d{3}[-\s]?\d{4}', msg):
-            logger.info(f"LEGITIMATE: Official helpline number found")
-            return True
         
-        has_official_domain = any(domain in msg for domain in trusted_domains)
-        has_urgency = any(w in msg for w in ['urgent', 'immediate', 'now', 'blocked'])
-        has_sensitive = any(w in msg for w in ['otp', 'password', 'cvv', 'pin'])
+        for domain in trusted_domains:
+            if domain in msg_lower:
+                score += 0.4
+                logger.info(f"TRUSTED domain: '{domain}'")
         
-        if has_official_domain and not has_urgency and not has_sensitive:
-            logger.info(f"LEGITIMATE: Official domain without pressure tactics")
-            return True
-
-        return False
+        if re.search(r'1800[-\s]?\d{3}[-\s]?\d{4}', msg_lower):
+            score += 0.3
+            logger.info(f"OFFICIAL helpline found")
+        
+        weak_markers = [
+            "official app",
+            "official reminder",
+            "rbi compliance",
+            "for assistance"
+        ]
+        
+        weak_count = sum(1 for marker in weak_markers if marker in msg_lower)
+        score += min(weak_count * 0.1, 0.2)
+        
+        return min(score, 1.0)
     
     def pattern_analysis(self, message: str, normalized_message: str) -> Tuple[float, List[str], Optional[str]]:
-        """Enhanced with normalization and advanced patterns"""
         message_lower = message.lower()
         norm_lower = normalized_message.lower()
         
@@ -1448,7 +1430,6 @@ class AdvancedDetector:
         return min(score, 1.0)
     
     def detect(self, message: str, history: List|None = None, session_id: str = None) -> DetectionResult:
-        """ULTRA-ENHANCED detection with all 35 improvements"""
         
         normalized_message = self.text_normalizer.normalize_aggressive(message)
         
@@ -1460,18 +1441,6 @@ class AdvancedDetector:
         if is_reversed:
             logger.warning(f"Reversed text detected: {reversed_text}")
             message = reversed_text
-        
-        if self._is_legitimate_message(message):
-            logger.info(f"Message identified as LEGITIMATE - early return")
-            return DetectionResult(
-                is_scam=False,
-                confidence=0.0,
-                category=ScamCategory.UNKNOWN,
-                indicators=["LEGITIMATE_MESSAGE"],
-                urgency_score=0.0,
-                threat_level="none",
-                impersonation_target=None
-            )
         
         pattern_score, indicators, impersonation = self.pattern_analysis(message, normalized_message)
         semantic_score, category = self.semantic_analysis(normalized_message)
@@ -1578,7 +1547,7 @@ class AdvancedDetector:
         urgency = self.calculate_urgency(message)
         escalation_score = self._detect_escalation(message, history)
         
-        final_confidence = (
+        raw_confidence = (
             pattern_score * 0.30 +
             semantic_score * 0.15 +
             context_score * 0.10 +
@@ -1598,14 +1567,26 @@ class AdvancedDetector:
         )
         
         if pattern_score > 0.5 and semantic_score > 0.4:
-            final_confidence = min(final_confidence * 1.15, 1.0)
+            raw_confidence = min(raw_confidence * 1.15, 1.0)
         
         if history and len(history) >= 3:
             repeated_pressure = sum(
                 1 for m in history if 'urgent' in m.text.lower()
             )
             if repeated_pressure >= 2:
-                final_confidence += 0.1
+                raw_confidence += 0.1
+
+        legitimacy_score = self._calculate_legitimacy_score(message, normalized_message)
+        
+        final_confidence = raw_confidence
+        
+        if legitimacy_score >= 0.8 and raw_confidence < 0.4:
+            final_confidence = raw_confidence * 0.3
+            indicators.append(f"LEGITIMATE_DAMPENING: -{legitimacy_score:.2f}")
+            logger.info(f"Legitimate dampening applied: {raw_confidence:.3f} → {final_confidence:.3f}")
+        elif legitimacy_score >= 0.6 and raw_confidence < 0.5:
+            final_confidence = raw_confidence * 0.6
+            indicators.append(f"PARTIAL_DAMPENING: -{legitimacy_score:.2f}")
 
         if final_confidence >= 0.65:
             is_scam = True
@@ -1640,7 +1621,9 @@ class AdvancedDetector:
                 'legal_threat': legal_score,
                 'authority_reward_combo': combo_score,
                 'contradiction': contradiction_score,
-                'money_urgency': money_urgency_score
+                'money_urgency': money_urgency_score,
+                'raw_confidence': raw_confidence,
+                'legitimacy_dampening': legitimacy_score
             }
         )
     
@@ -2094,7 +2077,7 @@ class PersonaSelector:
         ScamCategory.TECH_SUPPORT: PersonaType.ELDERLY,
         ScamCategory.PHISHING: PersonaType.PROFESSIONAL,
         ScamCategory.REFUND: PersonaType.PROFESSIONAL,
-        ScamCategory.MISSED_CALL: PersonaType.YOUTH,  # NEW
+        ScamCategory.MISSED_CALL: PersonaType.YOUTH,
         ScamCategory.UNKNOWN: PersonaType.YOUTH
     }
     
@@ -2144,7 +2127,6 @@ class ConversationState:
             }
 
 class AdvancedAgent:
-    """IMPROVEMENT 35: Enhanced persona realism"""
     
     PERSONA_LEXICON = {
         "Rajeshwari": ["beta", "ji", "samajh", "bete", "confusion"],
@@ -2188,7 +2170,6 @@ class AdvancedAgent:
         return self.response_cache.get(cache_key)
     
     def get_vocabulary_for_stage(self, persona_name: str, turn: int) -> List[str]:
-        """IMPROVEMENT 35: Get vocabulary appropriate for conversation stage"""
         if persona_name not in self.VOCABULARY_VARIANTS:
             return []
         
@@ -2370,7 +2351,6 @@ EXTRACTION_STYLE:
         return cleaned
     
     def _clean_response(self, reply: str, persona: Persona, turn: int = 1) -> str:
-        """IMPROVEMENT 35: Enhanced with turn-aware vocabulary"""
         reply_lower = reply.lower()
 
         reply = re.sub(r'</?(?:end_of_turn|start_of_turn)(?:\s+\w+)?>', '', reply)
@@ -2889,8 +2869,8 @@ async def honeypot_endpoint(
         state = None
 
     if state is None:
-        if not detection.is_scam:
-            logger.info(f"LEGITIMATE message detected (confidence {detection.confidence})")
+        if detection.confidence < 0.3:
+            logger.info(f"Very low confidence ({detection.confidence:.3f}) - treating as legitimate")
             
             msg_lower = incoming_for_detection.lower()
             
@@ -2961,7 +2941,7 @@ async def honeypot_endpoint(
                                             'rupee', 'send money', 'account number']):
         state.financial_loss_attempt = True
     
-    sensitive_keywords = ['otp', 'password', 'cvv', 'pin', 'account number']
+    sensitive_keywords = ['otp', 'password', 'cvv', 'pin', 'account number', 'one time password']
     has_sensitive_request = any(kw in incoming_for_detection.lower() for kw in sensitive_keywords)
     turn_depth_risk = ContextIntelligenceAnalyzer.calculate_turn_depth_risk(
         state.turn_count, has_sensitive_request
@@ -2995,39 +2975,40 @@ async def root():
         "status": "active",
         "improvements_implemented": 35,
         "features": [
-            "✅ Advanced text normalization & obfuscation detection",
-            "✅ Word fragment stitching (ver ify → verify)",
-            "✅ Reverse text detection",
-            "✅ Short malicious message handling",
-            "✅ Numerical pattern abuse detection",
-            "✅ Linkless phishing & missed call scam detection",
-            "✅ Payment psychology & legal threat detection",
-            "✅ Fake verification & social engineering sequencing",
-            "✅ Multi-turn grooming detection",
-            "✅ Formal template & placeholder detection",
-            "✅ Countdown manipulation detection",
-            "✅ Tone inconsistency analysis",
-            "✅ Authority + reward combo detection",
-            "✅ High-risk phrase combinations",
-            "✅ Template fingerprinting & clustered attack detection",
-            "✅ Compliance escalation tracking",
-            "✅ Suspicion momentum calculation",
-            "✅ Politeness masking detection",
-            "✅ URL context mismatch analysis",
-            "✅ Structured instruction detection",
-            "✅ Money urgency ratio",
-            "✅ Precision targeting detection",
-            "✅ Confidentiality manipulation",
-            "✅ Contradiction detection (RBI + OTP)",
-            "✅ Turn depth risk weighting",
-            "✅ Scam lifecycle modeling",
-            "✅ False positive dampening",
-            "✅ Keyword proximity scoring",
-            "✅ Persona realism with vocabulary evolution",
-            "✅ Multi-language support (Hindi, Tamil, Telugu, Kannada)",
-            "✅ HTTP/HTTPS URL security analysis",
-            "✅ Homograph attack detection",
-            "✅ Cipher detection & decoding"
+            "Advanced text normalization & obfuscation detection",
+            "Word fragment stitching (ver ify → verify)",
+            "Reverse text detection",
+            "Short malicious message handling",
+            "Numerical pattern abuse detection",
+            "Linkless phishing & missed call scam detection",
+            "Payment psychology & legal threat detection",
+            "Fake verification & social engineering sequencing",
+            "Multi-turn grooming detection",
+            "Formal template & placeholder detection",
+            "Countdown manipulation detection",
+            "Tone inconsistency analysis",
+            "Authority + reward combo detection",
+            "High-risk phrase combinations",
+            "Template fingerprinting & clustered attack detection",
+            "Compliance escalation tracking",
+            "Suspicion momentum calculation",
+            "Politeness masking detection",
+            "URL context mismatch analysis",
+            "Structured instruction detection",
+            "Money urgency ratio",
+            "Precision targeting detection",
+            "Confidentiality manipulation",
+            "Contradiction detection (RBI + OTP)",
+            "Turn depth risk weighting",
+            "Scam lifecycle modeling",
+            "False positive dampening",
+            "Keyword proximity scoring",
+            "Persona realism with vocabulary evolution",
+            "Multi-language support (Hindi, Tamil, Telugu, Kannada)",
+            "HTTP/HTTPS URL security analysis",
+            "Homograph attack detection",
+            "Cipher detection & decoding",
+            "One time password normalization"
         ],
         "endpoints": [
             "/api/honeypot",
