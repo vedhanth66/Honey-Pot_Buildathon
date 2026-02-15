@@ -5,8 +5,6 @@ import random
 from typing import List, Dict, Any
 from datetime import datetime
 
-# API_URL = "https://honeypotbuildathon.vercel.app/"  
-# HEALTH_URL = "https://honeypotbuildathon.vercel.app/health"
 API_URL = 'https://tensortitansbuildathon.xyz/'
 HEALTH_URL = API_URL + "health"
 API_KEY = "Honey-Pot_Buildathon-123456"
