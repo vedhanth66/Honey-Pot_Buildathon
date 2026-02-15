@@ -1783,19 +1783,34 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-async def send_final_callback(session_id: str, state: ConversationState):
+async def send_final_callback(session_id: str, history: List[Message], state: ConversationState):
     if state.callback_sent:
         logger.info(f"Callback already sent for {session_id}")
         return True
     
+    prompt = ""
+    for msg in history:
+        if msg.sender == "scammer":
+            prompt += msg.text + "\n" + "-"*5 + "\n"
+    
+    if state.detection_confidence >= 0.6:
+        sys_prompt = f"You are a journalist. You are provided a conversation snippet of a Scammer trying to scam a user. Your Job is to summarize the exact intent of the scammer into 1 to 5 lines. DO NOT decorate words with symbols like *, \". Also provide all the details the scammer has provided. DO NOT overflow. STAY WITHIN 5 LINES. Content: \n{prompt}. Scammer details extracted: {str(state.extracted_intel)}"
+    else:
+        sys_prompt = f"You are a journalist. You are provided a conversation snippet of an Official account trying to converse with a customer. Your Job is to summarize the exact intent of the user into 1 to 5 lines. DO NOT decorate words with symbols like *, \". Also provide all the details the scammer has provided. DO NOT overflow. STAY WITHIN 5 LINES. Content: \n{prompt}. Details extracted: {str(state.extracted_intel)}"
+
+    resp = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        ollama.generate,
+                        model=OLLAMA_MODEL,
+                        prompt=sys_prompt,
+                        options={"temperature": 0.5, "num_predict": 128}
+                    ),
+                    timeout=40.0
+                )
+    
     payload = {
         "sessionId": session_id,
         "scamDetected": state.detection_confidence >= 0.6,
-        "detection": {
-            "confidence": state.detection_confidence,
-            "category": state.scam_category.value,
-            "threatLevel": state.threat_level
-        },
         "totalMessagesExchanged": state.turn_count,
         "extractedIntelligence": {
             "bankAccounts": state.extracted_intel.get('bankAccounts', []),
@@ -1803,20 +1818,8 @@ async def send_final_callback(session_id: str, state: ConversationState):
             "phishingLinks": state.extracted_intel.get('phishingLinks', []),
             "phoneNumbers": state.extracted_intel.get('phoneNumbers', []),
             "suspiciousKeywords": state.extracted_intel.get('suspiciousKeywords', []),
-            "urlRiskScore": state.extracted_intel.get('domainRiskScore', 0)
         },
-        "analysis": {
-            "confidence": state.detection_confidence,
-            "threatLevel": state.threat_level,
-            "escalationStage": state.escalation_stage,
-            "financialAttempt": state.financial_loss_attempt,
-            "socialEngineeringTechniques": getattr(state, "social_engineering", []),
-            "detectedLanguage": state.language_name
-        },
-        "whyScam": "Multi-layer detection: pattern + semantic + escalation + anomaly + behavioral + URL security analysis",
-        "agentNotes": f"Persona:{state.persona.name}|Cat:{state.scam_category.value}|"
-                      f"Esc:{state.escalation_stage}/5|Trust:{state.trust_level:.0%}|"
-                      f"Emotion:{state.scammer_emotion}|Lang:{state.language_name}"
+        "agentNotes": resp.response
     }
     
     logger.info(f"CALLBACK for {session_id}: {json.dumps(payload, indent=2)}")
@@ -1991,7 +1994,7 @@ async def honeypot_endpoint(
     
     if agent.should_end_conversation(state):
         logger.info(f"ENDING CONVERSATION: {session_id}")
-        await send_final_callback(session_id, state)
+        await send_final_callback(session_id, history, state)
     
     return JSONResponse(content={"status": "success", "reply": reply})
 
