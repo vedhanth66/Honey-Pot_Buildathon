@@ -332,31 +332,67 @@ class SocialEngineeringAnalyzer:
         indicators = []
         score = 0.0
         
-        formal_patterns = [
-            r'^dear\s+(?:customer|sir|madam|user)',
-            r'^respected\s+(?:customer|sir|madam)',
-            r'^greetings',
-            r'(?:regards|sincerely),?\s*$',
-            r'customer\s+(?:care|support|service)'
-        ]
-        
         text_lower = text.lower().strip()
         
-        formal_count = sum(1 for pattern in formal_patterns if re.search(pattern, text_lower))
+        opening_patterns = [
+            (r'^dear\s+(?:customer|sir|madam|user|valued\s+customer)', 0.40, "Generic salutation"),
+            (r'^respected\s+(?:customer|sir|madam)', 0.35, "Respected opening"),
+            (r'^greetings', 0.30, "Greetings opening"),
+            (r'^attention', 0.25, "Attention opening"),
+            (r'^notice', 0.25, "Notice opening"),
+            (r'^important', 0.20, "Important announcement"),
+        ]
         
-        if formal_count >= 2:
-            score += 0.45
-            indicators.append("Formal template structure")
+        for pattern, weight, label in opening_patterns:
+            if re.search(pattern, text_lower):
+                score += weight
+                indicators.append(label)
         
-        if text_lower.startswith('dear customer') or text_lower.startswith('dear sir'):
-            score += 0.35
-            indicators.append("Generic salutation")
+        closing_patterns = [
+            (r'(?:regards|sincerely|best\s+wishes|thank\s+you),?\s*$', 0.30, "Formal closing"),
+            (r'(?:customer\s+care|customer\s+support|customer\s+service)\s*(?:team|department|center)?', 0.45, "Impersonating customer service"),
+            (r'(?:banking\s+team|support\s+team|help\s+desk)', 0.35, "Team signature"),
+        ]
         
-        if 'customer care' in text_lower or 'customer support' in text_lower:
-            score += 0.30
-            indicators.append("Impersonating customer service")
+        for pattern, weight, label in closing_patterns:
+            if re.search(pattern, text_lower):
+                score += weight
+                indicators.append(label)
         
-        return score, indicators
+        template_markers = [
+            (r'reference\s*(?:number|id|#)?\s*[:\\-]?\s*[a-z0-9]+', 0.25, "Reference number"),
+            (r'ticket\s*(?:number|id|#)?\s*[:\\-]?\s*[a-z0-9]+', 0.25, "Ticket number"),
+            (r'account\s*(?:number|id|#)?\s*[:\\-]?\s*[x\d]+', 0.30, "Account reference"),
+            (r'date\s*[:\\-]?\s*\\d{1,2}[/-]\\d{1,2}[/-]\\d{2,4}', 0.20, "Date stamp"),
+            (r'\\d{1,2}:\\d{2}\\s*(?:am|pm)?', 0.15, "Time stamp"),
+        ]
+        
+        for pattern, weight, label in template_markers:
+            if re.search(pattern, text_lower):
+                score += weight
+                indicators.append(label)
+        
+        generic_phrases = [
+            (r'we\\s+(?:regret|inform|notify|wish)', 0.20, "Institutional we"),
+            (r'your\\s+(?:account|service|request|complaint)', 0.15, "Generic reference"),
+            (r'please\\s+(?:find|note|see|refer)', 0.15, "Formal instruction"),
+            (r'enclosed|attached|below', 0.15, "Document reference"),
+        ]
+        
+        for pattern, weight, label in generic_phrases:
+            if re.search(pattern, text_lower):
+                score += weight
+                indicators.append(label)
+        
+        formal_count = len(indicators)
+        if formal_count >= 3:
+            score += 0.25
+            indicators.append("Multiple formal elements")
+        elif formal_count >= 2:
+            score += 0.15
+            indicators.append("Formal structure detected")
+        
+        return min(score, 0.95), indicators
     
     @staticmethod
     def detect_placeholders(text: str) -> Tuple[float, List[str]]:
