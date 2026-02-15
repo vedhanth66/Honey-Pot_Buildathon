@@ -6,9 +6,7 @@ from typing import List, Dict, Any, Tuple
 from datetime import datetime
 import sys
 
-# API Configuration
 API_URL = 'https://tensortitansbuildathon.xyz/'
-# API_URL = "http://localhost:8080/"
 HEALTH_URL = API_URL + "health"
 API_KEY = "Honey-Pot_Buildathon-123456"
 
@@ -26,15 +24,7 @@ class Colors:
     YELLOW = '\033[33m'
     WHITE = '\033[97m'
 
-# ============================================================================
-# TEST SCENARIOS FOR ALL 35 IMPROVEMENTS
-# ============================================================================
-
 IMPROVEMENT_TEST_SCENARIOS = [
-    
-    # ========================================================================
-    # CATEGORY 1: ADVANCED TEXT OBFUSCATION (Improvements 1-4)
-    # ========================================================================
     
     {
         "improvement": "1",
@@ -116,9 +106,9 @@ IMPROVEMENT_TEST_SCENARIOS = [
         "category": "Text Obfuscation",
         "description": "Tests detection of reversed malicious text",
         "messages": [
-            "PT O daer",  # "read OTP" reversed
-            "drowssap ruoy erahS",  # "Share your password" reversed
-            "dekcab tnuocca knaB"  # "Bank account backed" reversed
+            "PT O daer",
+            "drowssap ruoy erahS",
+            "dekcab tnuocca knaB"
         ],
         "expected": {
             "should_detect": True,
@@ -145,10 +135,6 @@ IMPROVEMENT_TEST_SCENARIOS = [
             "note": "Short messages with urgency+authority or urgency+financial should be caught"
         }
     },
-    
-    # ========================================================================
-    # CATEGORY 2: ADVANCED PATTERN DETECTION (Improvements 5-11)
-    # ========================================================================
     
     {
         "improvement": "5",
@@ -281,10 +267,6 @@ IMPROVEMENT_TEST_SCENARIOS = [
         }
     },
     
-    # ========================================================================
-    # CATEGORY 3: SOCIAL ENGINEERING ANALYSIS (Improvements 12-17)
-    # ========================================================================
-    
     {
         "improvement": "12",
         "name": "Fake Verification Requests",
@@ -310,10 +292,10 @@ IMPROVEMENT_TEST_SCENARIOS = [
         "category": "Social Engineering",
         "description": "Tests detection of classic scam flow",
         "messages": [
-            "This is your bank manager speaking",  # Authority
-            "Your account will be blocked today!",  # Urgency
-            "Please share your OTP to prevent this",  # Sensitive data
-            "Click here and transfer Rs.1000 now"  # Action demand
+            "This is your bank manager speaking",
+            "Your account will be blocked today!",
+            "Please share your OTP to prevent this",
+            "Click here and transfer Rs.1000 now"
         ],
         "expected": {
             "should_detect": True,
@@ -394,10 +376,6 @@ IMPROVEMENT_TEST_SCENARIOS = [
         }
     },
     
-    # ========================================================================
-    # CATEGORY 4: LINGUISTIC ANALYSIS (Improvements 18-20, 24, 26, 29)
-    # ========================================================================
-    
     {
         "improvement": "18",
         "name": "Tone Inconsistency Detection",
@@ -440,10 +418,10 @@ IMPROVEMENT_TEST_SCENARIOS = [
         "category": "Linguistic Analysis",
         "description": "Tests dangerous word pairings",
         "messages": [
-            "Share OTP urgently or account blocked",  # OTP + urgent
-            "Bank account suspended, verify immediately",  # bank + blocked
-            "Refund approved, click link to claim",  # refund + click
-            "Police case filed, pay fine now"  # police + payment
+            "Share OTP urgently or account blocked",
+            "Bank account suspended, verify immediately",  
+            "Refund approved, click link to claim",  
+            "Police case filed, pay fine now"  
         ],
         "expected": {
             "should_detect": True,
@@ -504,10 +482,6 @@ IMPROVEMENT_TEST_SCENARIOS = [
         }
     },
     
-    # ========================================================================
-    # CATEGORY 5: CONTEXT INTELLIGENCE (Improvements 21-23, 25, 27-28, 30-32, 34)
-    # ========================================================================
-    
     {
         "improvement": "21",
         "name": "Scam Template Fingerprinting",
@@ -515,8 +489,8 @@ IMPROVEMENT_TEST_SCENARIOS = [
         "description": "Tests detection of repeated template patterns",
         "messages": [
             "Urgent bank account blocked verify link otp",
-            "Urgent bank account blocked verify link otp",  # Repeat
-            "Urgent bank account blocked verify link otp"   # Repeat again
+            "Urgent bank account blocked verify link otp",
+            "Urgent bank account blocked verify link otp"
         ],
         "expected": {
             "should_detect": True,
@@ -533,8 +507,8 @@ IMPROVEMENT_TEST_SCENARIOS = [
         "description": "Tests detection of exploitation after compliance",
         "messages": [
             "Please share your account number",
-            "Okay, I will send it",  # Victim compliance
-            "Good! Now also send your CVV and OTP"  # Immediate escalation
+            "Okay, I will send it",
+            "Good! Now also send your CVV and OTP"
         ],
         "expected": {
             "should_detect": True,
@@ -549,8 +523,8 @@ IMPROVEMENT_TEST_SCENARIOS = [
         "category": "Context Intelligence",
         "description": "Tests detection of sudden confidence spikes",
         "messages": [
-            "Hello, this is about your account",  # Low threat
-            "URGENT! BLOCKED! SEND OTP NOW OR LOSE MONEY!"  # Sudden spike
+            "Hello, this is about your account",
+            "URGENT! BLOCKED! SEND OTP NOW OR LOSE MONEY!"
         ],
         "expected": {
             "should_detect": True,
@@ -657,7 +631,7 @@ IMPROVEMENT_TEST_SCENARIOS = [
             "I'm calling about your account",
             "Just a routine check",
             "Everything looks good",
-            "Oh wait, we need your OTP now"  # Turn 5, sensitive request
+            "Oh wait, we need your OTP now"
         ],
         "expected": {
             "should_detect": True,
@@ -673,10 +647,10 @@ IMPROVEMENT_TEST_SCENARIOS = [
         "category": "Context Intelligence",
         "description": "Tests 5-stage lifecycle classification",
         "messages": [
-            "Hi, this is about your account",  # Reconnaissance
-            "Don't worry, everything is safe",  # Grooming
-            "Please provide your account details",  # Extraction
-            "Now send OTP and transfer Rs.1000"  # Exploitation (HIGHEST RISK)
+            "Hi, this is about your account",
+            "Don't worry, everything is safe",
+            "Please provide your account details",  
+            "Now send OTP and transfer Rs.1000"
         ],
         "expected": {
             "should_detect": True,
@@ -692,9 +666,9 @@ IMPROVEMENT_TEST_SCENARIOS = [
         "category": "Context Intelligence",
         "description": "Tests detection of dangerous words close together",
         "messages": [
-            "Urgent OTP verification required immediately",  # OTP + urgent within 5 words
-            "Your bank account is blocked now",  # bank + blocked close
-            "Click refund link urgently today"  # refund + click close
+            "Urgent OTP verification required immediately",
+            "Your bank account is blocked now",
+            "Click refund link urgently today"
         ],
         "expected": {
             "should_detect": True,
@@ -702,10 +676,6 @@ IMPROVEMENT_TEST_SCENARIOS = [
             "confidence_boost": ">= 0.25"
         }
     },
-    
-    # ========================================================================
-    # CATEGORY 6: SYSTEM INTELLIGENCE (Improvements 33, 35)
-    # ========================================================================
     
     {
         "improvement": "33",
@@ -768,7 +738,7 @@ IMPROVEMENT_TEST_SCENARIOS = [
             "We need verification",
             "This is urgent",
             "Your details please",
-            "Account number now"  # Turn 5
+            "Account number now"
         ],
         "expected": {
             "should_respond": True,
@@ -776,10 +746,6 @@ IMPROVEMENT_TEST_SCENARIOS = [
             "note": "Turn 3-5 should shift to mid-stage vocabulary"
         }
     },
-    
-    # ========================================================================
-    # COMBINED/INTEGRATION TESTS
-    # ========================================================================
     
     {
         "improvement": "ALL",
@@ -792,14 +758,14 @@ IMPROVEMENT_TEST_SCENARIOS = [
         "expected": {
             "should_detect": True,
             "improvements_triggered": [
-                "text_normalization",  # O T P, acc0unt, Cyrillic
-                "placeholder_detection",  # [Customer]
-                "contradiction",  # RBI + OTP
-                "url_mismatch",  # RBI topic + fake domain
-                "money_urgency",  # Rs.500 + urgently + now
-                "confidentiality",  # Don't tell anyone
-                "structured_instructions",  # Step 1
-                "politeness_masking"  # Multiple please/kindly
+                "text_normalization",
+                "placeholder_detection",
+                "contradiction",
+                "url_mismatch",
+                "money_urgency",
+                "confidentiality",
+                "structured_instructions", 
+                "politeness_masking"
             ],
             "confidence": ">= 0.85",
             "threat_level": "critical"
@@ -812,11 +778,11 @@ IMPROVEMENT_TEST_SCENARIOS = [
         "category": "Integration",
         "description": "Tests obfuscation + social engineering + context intelligence",
         "messages": [
-            "H e l l o customer",  # Fragment stitching
-            "This is your bank manager, trust me",  # Authority + grooming
-            "Your account is suspended, blocked, urgent!",  # Phrase combinations
-            "Give missed call to +91-9876543210",  # Linkless + missed call
-            "Then pay Rs.100 refundable deposit to unlock Rs.50000 prize"  # Payment psychology + lottery contradiction
+            "H e l l o customer",
+            "This is your bank manager, trust me",
+            "Your account is suspended, blocked, urgent!",
+            "Give missed call to +91-9876543210",
+            "Then pay Rs.100 refundable deposit to unlock Rs.50000 prize"
         ],
         "expected": {
             "should_detect": True,
@@ -838,11 +804,11 @@ IMPROVEMENT_TEST_SCENARIOS = [
         "category": "Integration",
         "description": "Tests lifecycle progression with multiple tactics",
         "messages": [
-            "Hello, I'm from SBI customer care",  # Reconnaissance
-            "Don't worry, your account is safe, I promise",  # Grooming
-            "Confirm your last 4 digits for verification",  # Extraction
-            "Now urgently send OTP within 2 hours or blocked!",  # Exploitation
-            "Pay Rs.1000 immediately to http://fake.xyz"  # Exploitation (peak risk)
+            "Hello, I'm from SBI customer care",
+            "Don't worry, your account is safe, I promise",
+            "Confirm your last 4 digits for verification",
+            "Now urgently send OTP within 2 hours or blocked!",
+            "Pay Rs.1000 immediately to http://fake.xyz"
         ],
         "expected": {
             "should_detect": True,
@@ -860,10 +826,6 @@ IMPROVEMENT_TEST_SCENARIOS = [
         }
     }
 ]
-
-# ============================================================================
-# HELPER FUNCTIONS
-# ============================================================================
 
 def print_banner():
     print(f"{Colors.HEADER}{'='*120}")
@@ -921,7 +883,6 @@ def run_improvement_test(scenario: Dict, test_number: int, total_tests: int) -> 
     
     session_id = f"IMP_{scenario['improvement']}_{int(time.time())}_{random.randint(1000,9999)}"
     
-    # Header
     print(f"\n{Colors.HEADER}{'='*120}{Colors.ENDC}")
     print(f"{Colors.BOLD}{Colors.CYAN}[{test_number}/{total_tests}] IMPROVEMENT #{scenario['improvement']}: {scenario['name']}{Colors.ENDC}")
     print(f"   ├─ Category: {Colors.MAGENTA}{scenario['category']}{Colors.ENDC}")
@@ -944,11 +905,9 @@ def run_improvement_test(scenario: Dict, test_number: int, total_tests: int) -> 
     }
     
     for i, msg_text in enumerate(scenario['messages'], 1):
-        # Display message
         msg_display = msg_text if len(msg_text) <= 150 else msg_text[:147] + "..."
         print(f"{Colors.WARNING}📤 [{i}/{len(scenario['messages'])}] Scammer:{Colors.ENDC} {msg_display}")
         
-        # Construct payload
         payload = {
             "sessionId": session_id,
             "message": {
@@ -988,7 +947,6 @@ def run_improvement_test(scenario: Dict, test_number: int, total_tests: int) -> 
                 
                 results['responses_received'] += 1
                 
-                # Update history
                 history.append({
                     "sender": "scammer",
                     "text": msg_text,
@@ -1011,11 +969,9 @@ def run_improvement_test(scenario: Dict, test_number: int, total_tests: int) -> 
             print(f"{Colors.FAIL}✗ Error: {str(e)}{Colors.ENDC}")
             results['errors'] += 1
         
-        # Small delay between messages
         if i < len(scenario['messages']):
             time.sleep(1.0)
     
-    # Get final session report
     print(f"\n{Colors.CYAN}📊 Fetching Session Report...{Colors.ENDC}")
     try:
         report_resp = requests.get(
@@ -1031,14 +987,12 @@ def run_improvement_test(scenario: Dict, test_number: int, total_tests: int) -> 
             results['threat_level'] = report.get('threatLevel', 'unknown')
             results['lifecycle_stage'] = report.get('lifecycleStage', 'unknown')
             
-            # Display report
             print(f"{Colors.GREEN}✓ Report Retrieved{Colors.ENDC}")
             print(f"   ├─ Final Confidence: {Colors.BOLD}{results['confidence']:.3f}{Colors.ENDC}")
             print(f"   ├─ Threat Level: {Colors.BOLD}{results['threat_level']}{Colors.ENDC}")
             print(f"   ├─ Lifecycle Stage: {Colors.BOLD}{results['lifecycle_stage']}{Colors.ENDC}")
             print(f"   ├─ Financial Attempt: {report.get('financialAttempt', False)}")
             
-            # Intelligence extracted
             intel = report.get('extractedIntelligence', {})
             intel_summary = []
             if intel.get('bankAccounts'):
@@ -1056,11 +1010,9 @@ def run_improvement_test(scenario: Dict, test_number: int, total_tests: int) -> 
     except Exception as e:
         print(f"{Colors.WARNING}⚠ Could not fetch report: {str(e)}{Colors.ENDC}")
     
-    # Validation against expected results
     print(f"\n{Colors.BOLD}✅ VALIDATION:{Colors.ENDC}")
     expected = scenario.get('expected', {})
     
-    # Should detect
     if 'should_detect' in expected:
         should_detect = expected['should_detect']
         if scam_detected == should_detect:
@@ -1070,7 +1022,6 @@ def run_improvement_test(scenario: Dict, test_number: int, total_tests: int) -> 
             print(f"   {Colors.FAIL}✗ Detection wrong: expected {should_detect}, got {scam_detected}{Colors.ENDC}")
             results['validations']['failed'] += 1
     
-    # Confidence check
     if 'confidence' in expected:
         conf_check = expected['confidence']
         if '>=' in conf_check:
@@ -1090,14 +1041,12 @@ def run_improvement_test(scenario: Dict, test_number: int, total_tests: int) -> 
                 print(f"   {Colors.FAIL}✗ Confidence {results['confidence']:.3f} >= {threshold}{Colors.ENDC}")
                 results['validations']['failed'] += 1
     
-    # Overall pass/fail
     results['passed'] = (
         results['errors'] == 0 and
         results['validations']['failed'] == 0 and
         results['responses_received'] > 0
     )
     
-    # Summary
     print(f"\n{Colors.BOLD}📈 TEST RESULT:{Colors.ENDC}")
     if results['passed']:
         print(f"   {Colors.GREEN}{Colors.BOLD}✓ IMPROVEMENT #{scenario['improvement']} TEST PASSED{Colors.ENDC}")
@@ -1121,7 +1070,6 @@ def print_final_summary(all_results: List[Dict]):
     passed = sum(1 for r in all_results if r['passed'])
     failed = total - passed
     
-    # Overall stats
     print(f"{Colors.BOLD}OVERALL STATISTICS:{Colors.ENDC}")
     print(f"   ├─ Total Tests: {total}")
     print(f"   ├─ Passed: {Colors.GREEN}{passed}{Colors.ENDC}")
@@ -1130,7 +1078,6 @@ def print_final_summary(all_results: List[Dict]):
     color = Colors.GREEN if success_rate >= 90 else Colors.WARNING if success_rate >= 70 else Colors.FAIL
     print(f"   └─ Success Rate: {color}{success_rate:.1f}%{Colors.ENDC}")
     
-    # Category breakdown
     print(f"\n{Colors.BOLD}BY CATEGORY:{Colors.ENDC}")
     categories = {}
     for result in all_results:
@@ -1147,7 +1094,6 @@ def print_final_summary(all_results: List[Dict]):
         status = f"{Colors.GREEN}✓{Colors.ENDC}" if stats['failed'] == 0 else f"{Colors.FAIL}✗{Colors.ENDC}"
         print(f"   {status} {cat}: {stats['passed']}/{stats['total']} passed")
     
-    # Improvement coverage
     print(f"\n{Colors.BOLD}IMPROVEMENT COVERAGE:{Colors.ENDC}")
     improvements_tested = set(r['improvement'] for r in all_results)
     if 'ALL' in improvements_tested:
@@ -1156,7 +1102,6 @@ def print_final_summary(all_results: List[Dict]):
     print(f"   ├─ Individual Improvements Tested: {len(improvements_tested)}/35")
     print(f"   └─ Integration Tests: {sum(1 for r in all_results if r['improvement'] == 'ALL')}")
     
-    # Failed tests details
     if failed > 0:
         print(f"\n{Colors.FAIL}{Colors.BOLD}FAILED TESTS:{Colors.ENDC}")
         for result in all_results:
@@ -1165,7 +1110,6 @@ def print_final_summary(all_results: List[Dict]):
                 print(f"      └─ Reason: {result['validations']['failed']} validation(s) failed, "
                       f"{result['errors']} error(s)")
     
-    # Validation stats
     total_val_passed = sum(r['validations']['passed'] for r in all_results)
     total_val_failed = sum(r['validations']['failed'] for r in all_results)
     total_val_warnings = sum(r['validations']['warnings'] for r in all_results)
@@ -1175,7 +1119,6 @@ def print_final_summary(all_results: List[Dict]):
     print(f"   ├─ Failed: {Colors.FAIL}{total_val_failed}{Colors.ENDC}")
     print(f"   └─ Warnings: {Colors.WARNING}{total_val_warnings}{Colors.ENDC}")
     
-    # Final verdict
     print(f"\n{Colors.HEADER}{'='*120}{Colors.ENDC}")
     if failed == 0:
         print(f"{Colors.GREEN}{Colors.BOLD}{'🎉 ALL IMPROVEMENTS VALIDATED! SYSTEM IS PRODUCTION-READY! 🎉':^120}{Colors.ENDC}")
@@ -1187,14 +1130,9 @@ def print_final_summary(all_results: List[Dict]):
         print(f"{Colors.FAIL}{Colors.BOLD}{'❌ NEEDS WORK: <70% PASS RATE - SIGNIFICANT ISSUES DETECTED':^120}{Colors.ENDC}")
     print(f"{Colors.HEADER}{'='*120}{Colors.ENDC}\n")
 
-# ============================================================================
-# MAIN EXECUTION
-# ============================================================================
-
 if __name__ == "__main__":
     print_banner()
     
-    # Health check
     if not check_health():
         print(f"\n{Colors.FAIL}❌ Health check failed. Aborting tests.{Colors.ENDC}")
         print(f"{Colors.CYAN}Ensure server is running: uvicorn app:app --reload{Colors.ENDC}")
@@ -1212,11 +1150,9 @@ if __name__ == "__main__":
         result = run_improvement_test(scenario, i, total_tests)
         all_results.append(result)
         
-        # Pause between tests
         if i < total_tests:
             time.sleep(2)
     
-    # Print final summary
     print_final_summary(all_results)
     
     print(f"\n{Colors.CYAN}Test suite completed at {datetime.now().strftime('%H:%M:%S')}{Colors.ENDC}")
