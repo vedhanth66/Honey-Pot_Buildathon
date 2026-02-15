@@ -16,7 +16,7 @@ API_KEY = "Honey-Pot_Buildathon-123456"
 OLLAMA_URL = "http://localhost:11434/api/chat"
 MODEL = "gemma3:12b-it-qat"
 
-MAX_TURNS = 6
+MAX_TURNS = 10
 TEMPERATURE = 0.7
 
 
