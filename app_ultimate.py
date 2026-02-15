@@ -1582,4 +1582,4 @@ async def explain_session(session_id: str, x_api_key: str = Header(...)):
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", 8080))
-    uvicorn.run(app, host="127.0.0.1", port=port)
+    uvicorn.run(app, host=os.getenv("HOST", "127.0.0.1"), port=port)
