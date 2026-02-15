@@ -1,7 +1,7 @@
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, HTTPException, Header, BackgroundTasks
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Tuple
+from typing import List, Optional, Dict, Tuple, Any
 import re
 import os
 import httpx
@@ -18,6 +18,7 @@ import ollama
 from urllib.parse import urlparse
 from collections import defaultdict
 import unicodedata
+import time
 
 dotenv.load_dotenv()
 
@@ -29,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 API_KEY = os.getenv("API_KEY", "Honey-Pot_Buildathon-123456")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma3:4b-it-qat")
-CALLBACK_URL = "https://hackathon.guvi.in/api/updateHoneyPotFinalResult   "
+CALLBACK_URL = "https://hackathon.guvi.in/api/updateHoneyPotFinalResult"
 
 class AdvancedTextNormalizer:
     
@@ -76,7 +77,7 @@ class AdvancedTextNormalizer:
         text = re.sub(r'[!?]{2,}', '!', text)
         
         if text != original:
-            logger.info(f"Normalized: '{original[:50]}' → '{text[:50]}'")
+            logger.info(f"Normalized: '{original[:50]}' -> '{text[:50]}'")
         
         return text
     
@@ -108,7 +109,7 @@ class AdvancedTextNormalizer:
         
         for keyword in dangerous_keywords:
             if keyword in reversed_text:
-                logger.warning(f"REVERSED TEXT DETECTED: '{text}' → '{reversed_text}'")
+                logger.warning(f"REVERSED TEXT DETECTED: '{text}' -> '{reversed_text}'")
                 return True, reversed_text
         
         return False, ""
@@ -297,7 +298,7 @@ class SocialEngineeringAnalyzer:
         
         if len(found_stages) >= 2 and current_stage == 'sensitive':
             score += 0.40
-            indicators.append(f"Classic scam sequence: {' → '.join(found_stages)} → {current_stage}")
+            indicators.append(f"Classic scam sequence: {' -> '.join(found_stages)} -> {current_stage}")
         
         return score, indicators
     
@@ -808,7 +809,7 @@ class ContextIntelligenceAnalyzer:
                     pass
         
         return min(score, 0.75), indicators
-    
+
 context_analyzer = ContextIntelligenceAnalyzer()
 
 class EdgeCaseHandler:
@@ -1210,9 +1211,7 @@ class AdvancedDetector:
             "pnbindia.in",
             "bankofbaroda.in",
             "canarabank.com",
-            "kotak.com",
-            ".gov.in",
-            "rbi.org.in"
+            "kotak.com"
         ]
         
         for domain in trusted_domains:
@@ -1650,7 +1649,7 @@ class AdvancedDetector:
         if legitimacy_score >= 0.8 and raw_confidence < 0.6:
             final_confidence = raw_confidence * 0.05
             indicators.append(f"LEGITIMATE_DAMPENING: -{legitimacy_score:.2f}")
-            logger.info(f"Legitimate dampening applied: {raw_confidence:.3f} → {final_confidence:.3f}")
+            logger.info(f"Legitimate dampening applied: {raw_confidence:.3f} -> {final_confidence:.3f}")
         elif legitimacy_score >= 0.6 and raw_confidence < 0.7:
             final_confidence = raw_confidence * 0.15
             indicators.append(f"PARTIAL_DAMPENING: -{legitimacy_score:.2f}")
@@ -1879,6 +1878,9 @@ class IntelligenceExtractor:
         'amounts': [
             r'(?:Rs\.?|INR|₹)\s*[\d,]+(?:\.\d{2})?',
             r'\b\d{1,8}(?:\.\d{2})?\s*(?:rupees?|Rs\.?|lakhs?|crores?)\b'
+        ],
+        'emails': [
+            r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
         ]
     }
     
@@ -1915,6 +1917,7 @@ class IntelligenceExtractor:
             'upiIds': [],
             'phishingLinks': [],
             'phoneNumbers': [],
+            'emailAddresses': [],
             'suspiciousKeywords': [],
             'ifscCodes': [],
             'amounts': [],
@@ -1952,6 +1955,13 @@ class IntelligenceExtractor:
                             seen_phones.add(normalized)
                 except Exception as e:
                     logger.debug(f"Phone extraction error: {e}")
+            
+            for email_pattern in self.EXTRACTION_PATTERNS['emails']:
+                try:
+                    matches = re.findall(email_pattern, text)
+                    intel['emailAddresses'].extend(matches)
+                except Exception as e:
+                    logger.debug(f"Email extraction error: {e}")
             
             for url_pattern in self.EXTRACTION_PATTERNS['urls']:
                 try:
@@ -2122,11 +2132,11 @@ class PersonaLibrary:
                     "anxious about future consequences"
                 ],
                 common_phrases=[
-                    "Yaar mujhe samajh nahi aa raha",
+                    "Arre seriously? Mujhe clear nahi ho raha...",
                     "Mujhe koi problem toh nahi hoga?",
-                    "Mere dost ko bhi same message aaya tha",
-                    "Seriously yaar?",
-                    "Thoda explain karo please"
+                    "Mere dost ko bhi same message aaya tha...",
+                    "Yaar mujhe thoda explain karo properly",
+                    "Seriously yaar?"
                 ],
                 vulnerabilities=[
                     "fear of missing opportunities",
@@ -2183,6 +2193,7 @@ class ConversationState:
     detection_confidence: float = 0.0
     threat_level: str = "low"
     lifecycle_stage: str = "unknown"
+    conversation_start_time: datetime = field(default_factory=datetime.now)
     
     def __post_init__(self):
         if not self.extracted_intel:
@@ -2191,6 +2202,7 @@ class ConversationState:
                 'upiIds': [],
                 'phishingLinks': [],
                 'phoneNumbers': [],
+                'emailAddresses': [],
                 'suspiciousKeywords': [],
                 'ifscCodes': [],
                 'amounts': [],
@@ -2482,9 +2494,6 @@ EXTRACTION_STYLE:
                     reply = f"Yaar, {reply[0].lower() if reply else ''}{reply[1:]}"
                 else:
                     reply = f"Seriously, {reply[0].lower() if reply else ''}{reply[1:]}"
-            
-            reply = reply.replace("samajh", "clear")
-            reply = reply.replace("Samajh", "Clear")
 
         lex = self.PERSONA_LEXICON.get(persona.name, [])
         if lex and random.random() < 0.35:
@@ -2493,7 +2502,7 @@ EXTRACTION_STYLE:
 
         if persona.name == "Priya Sharma":
             reply = reply.replace("samajh", "clear")
-            reply = reply.replace("confused", "thoda lost")
+            reply = reply.replace("Samajh", "Clear")
         elif persona.name == "Rajeshwari":
             reply = reply.replace("yaar", "beta")
         elif persona.name == "Arjun Mehta":
@@ -2775,6 +2784,15 @@ class IncomingRequest(BaseModel):
     conversationHistory: List[Message] = Field(default_factory=list)
     metadata: Optional[Metadata] = None
 
+class FinalOutput(BaseModel):
+    sessionId: str
+    scamDetected: bool
+    totalMessagesExchanged: int
+    extractedIntelligence: Dict[str, List[str]]
+    agentNotes: str
+    status: str = "completed"
+    engagementMetrics: Optional[Dict] = None
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("ULTIMATE Agentic Honey-Pot v7.0 COMPETITION EDITION Starting...")
@@ -2820,28 +2838,40 @@ async def send_final_callback(session_id: str, history: List[Message], state: Co
     else:
         sys_prompt = f"You are a journalist. You are provided a conversation snippet of an Official account trying to converse with a customer. Your Job is to summarize the exact intent of the user into 1 to 5 lines. Also provide all the details the scammer has provided. DO NOT overflow. STAY WITHIN 5 LINES. Content: \n{prompt}. Details extracted: {str(state.extracted_intel)}"
 
-    resp = await asyncio.wait_for(
-                    asyncio.to_thread(
-                        ollama.generate,
-                        model=OLLAMA_MODEL,
-                        prompt=sys_prompt,
-                        options={"temperature": 0.8, "num_predict": 128}
-                    ),
-                    timeout=40.0
-                )
+    try:
+        resp = await asyncio.wait_for(
+                        asyncio.to_thread(
+                            ollama.generate,
+                            model=OLLAMA_MODEL,
+                            prompt=sys_prompt,
+                            options={"temperature": 0.8, "num_predict": 128}
+                        ),
+                        timeout=40.0
+                    )
+        agent_notes = resp.response
+    except Exception as e:
+        logger.error(f"Failed to generate agent notes: {e}")
+        agent_notes = f"Scam detected with confidence {state.detection_confidence}. Extracted {len(state.extracted_intel.get('phoneNumbers', []))} phone numbers, {len(state.extracted_intel.get('upiIds', []))} UPI IDs."
+
+    engagement_duration = (datetime.now() - state.conversation_start_time).total_seconds()
 
     payload = {
         "sessionId": session_id,
         "scamDetected": state.detection_confidence >= 0.6,
         "totalMessagesExchanged": state.turn_count,
         "extractedIntelligence": {
+            "phoneNumbers": state.extracted_intel.get('phoneNumbers', []),
             "bankAccounts": state.extracted_intel.get('bankAccounts', []),
             "upiIds": state.extracted_intel.get('upiIds', []),
             "phishingLinks": state.extracted_intel.get('phishingLinks', []),
-            "phoneNumbers": state.extracted_intel.get('phoneNumbers', []),
-            "suspiciousKeywords": state.extracted_intel.get('suspiciousKeywords', []),
+            "emailAddresses": state.extracted_intel.get('emailAddresses', [])
         },
-        "agentNotes": resp.response
+        "agentNotes": agent_notes,
+        "status": "completed",
+        "engagementMetrics": {
+            "engagementDurationSeconds": int(engagement_duration),
+            "totalMessagesExchanged": state.turn_count
+        }
     }
     
     logger.info(f"CALLBACK for {session_id}: {json.dumps(payload, indent=2)}")
@@ -3031,6 +3061,28 @@ async def honeypot_endpoint(
     
     return JSONResponse(content={"status": "success", "reply": reply, "scam_detected": detection.is_scam})
 
+@app.post("/api/finalize")
+async def finalize_endpoint(
+    request: IncomingRequest,
+    x_api_key: str = Header(..., alias="x-api-key")
+):
+    if x_api_key != API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+
+    session_id = request.sessionId
+    
+    if session_id not in session_store:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    state = session_store[session_id]
+    
+    await send_final_callback(session_id, request.conversationHistory, state)
+    
+    return JSONResponse(content={
+        "status": "success",
+        "message": "Final output submitted"
+    })
+
 @app.get("/")
 async def root():
     return {
@@ -3040,7 +3092,7 @@ async def root():
         "improvements_implemented": 35,
         "features": [
             "Advanced text normalization & obfuscation detection",
-            "Word fragment stitching (ver ify → verify)",
+            "Word fragment stitching (ver ify -> verify)",
             "Reverse text detection",
             "Short malicious message handling",
             "Numerical pattern abuse detection",
@@ -3076,6 +3128,7 @@ async def root():
         ],
         "endpoints": [
             "/api/honeypot",
+            "/api/finalize",
             "/health",
             "/admin/metrics",
             "/admin/threat-intelligence",
@@ -3156,7 +3209,7 @@ async def get_metrics(x_api_key: str = Header(..., alias="x-api-key")):
         "completed": sum(1 for s in session_store.values() if s.callback_sent),
         "avg_turns": round(sum(s.turn_count for s in session_store.values()) / len(session_store), 1),
         "financial_attempts": total_financial,
-        "estimated_loss_prevented": f"₹{potential_loss:,}",
+        "estimated_loss_prevented": f"Rs.{potential_loss:,}",
         "intel": {
             "bank_accounts": sum(len(s.extracted_intel.get('bankAccounts', [])) for s in session_store.values()),
             "upi_ids": sum(len(s.extracted_intel.get('upiIds', [])) for s in session_store.values()),
