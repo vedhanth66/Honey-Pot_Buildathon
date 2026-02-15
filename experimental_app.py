@@ -2644,19 +2644,10 @@ EXTRACTION_STYLE:
                 return pick_unique(responses['default'])
     
     def should_end_conversation(self, state: ConversationState) -> bool:
-        intel = state.extracted_intel
-        turn = state.turn_count
+        if state.turn_count == 10:
+            return True
         
-        has_critical = (
-            len(intel['bankAccounts']) >= 1 or
-            len(intel['upiIds']) >= 1 or
-            (len(intel['phishingLinks']) >= 2 and len(intel['phoneNumbers']) >= 1)
-        )
-        
-        sufficient_length = turn >= 12
-        good_progress = turn >= 8 and (len(intel['phoneNumbers']) >= 1 or len(intel['phishingLinks']) >= 1)
-        
-        return has_critical or sufficient_length or good_progress
+        return False
     
     def update_state(self, state: ConversationState, scammer_msg: str, agent_reply: str):
         state.turn_count += 1
