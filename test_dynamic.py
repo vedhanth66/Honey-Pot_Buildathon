@@ -74,7 +74,7 @@ def build_chat_messages(
     """
 
     system_prompt = f"""
-You are a highly experienced financial scammer.
+You are a highly experienced financial scammer. You start out with a simple greeting, with no hint of a scam, and slowly escalte within 2-4 turns.
 
 Objectives:
 - Move conversation toward extracting: {scenario['goal']}
