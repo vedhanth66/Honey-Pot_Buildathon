@@ -6,12 +6,6 @@ from typing import List, Dict, Any
 from datetime import datetime
 import sys
 
-# API Configuration
-# API_URL = "https://honeypotbuildathon.vercel.app/"  
-# HEALTH_URL = "https://honeypotbuildathon.vercel.app/health"
-
-
-# API_URL = "http://localhost:8080/"
 API_URL = 'https://tensortitansbuildathon.xyz/'
 HEALTH_URL = API_URL + "health"
 API_KEY = "Honey-Pot_Buildathon-123456"
@@ -30,14 +24,7 @@ class Colors:
     YELLOW = '\033[33m'
     WHITE = '\033[97m'
 
-# ============================================================================
-# EDGE CASE TEST SCENARIOS
-# ============================================================================
-
 EDGE_CASE_SCENARIOS = [
-    # ========================================================================
-    # CATEGORY 1: EMPTY AND SHORT MESSAGES
-    # ========================================================================
     {
         "id": "EDGE_EMPTY_01",
         "category": "Empty/Short Messages",
@@ -84,9 +71,6 @@ EDGE_CASE_SCENARIOS = [
         }
     },
     
-    # ========================================================================
-    # CATEGORY 2: GREETINGS
-    # ========================================================================
     {
         "id": "EDGE_GREETING_04",
         "category": "Greetings",
@@ -109,9 +93,6 @@ EDGE_CASE_SCENARIOS = [
         }
     },
     
-    # ========================================================================
-    # CATEGORY 3: LONG MESSAGES (TRUNCATION)
-    # ========================================================================
     {
         "id": "EDGE_LONG_05",
         "category": "Long Messages",
@@ -131,7 +112,7 @@ EDGE_CASE_SCENARIOS = [
             "should_not_crash": True,
             "should_respond": True,
             "message_should_contain": ["bank", "otp", "link"],
-            "max_processing_time": 45.0  # seconds
+            "max_processing_time": 45.0
         }
     },
     {
@@ -153,9 +134,6 @@ EDGE_CASE_SCENARIOS = [
         }
     },
     
-    # ========================================================================
-    # CATEGORY 4: ENCRYPTED/CIPHER MESSAGES
-    # ========================================================================
     {
         "id": "EDGE_CIPHER_07",
         "category": "Cipher/Encryption",
@@ -184,17 +162,14 @@ EDGE_CASE_SCENARIOS = [
         }
     },
     
-    # ========================================================================
-    # CATEGORY 5: MULTI-LANGUAGE (DIFFERENT SCRIPTS)
-    # ========================================================================
     {
         "id": "EDGE_LANG_09",
         "category": "Multi-Language",
         "description": "Hindi (Devanagari Script)",
         "expected_behavior": "Should detect language and translate",
         "messages": [
-            "आपका बैंक खाता ब्लॉक हो जाएगा",  # Your bank account will be blocked
-            "तुरंत OTP भेजें",  # Send OTP immediately
+            "आपका बैंक खाता ब्लॉक हो जाएगा",
+            "तुरंत OTP भेजें",
         ],
         "validation": {
             "should_not_crash": True,
@@ -208,7 +183,7 @@ EDGE_CASE_SCENARIOS = [
         "description": "Tamil Script",
         "expected_behavior": "Should detect and translate",
         "messages": [
-            "உங்கள் வங்கி கணக்கு தடுக்கப்படும்",  # Your bank account will be blocked
+            "உங்கள் வங்கி கணக்கு தடுக்கப்படும்",
         ],
         "validation": {
             "should_not_crash": True,
@@ -221,7 +196,7 @@ EDGE_CASE_SCENARIOS = [
         "description": "Telugu Script",
         "expected_behavior": "Should detect and translate",
         "messages": [
-            "మీ బ్యాంక్ ఖాతా బ్లాక్ చేయబడుతుంది",  # Your bank account will be blocked
+            "మీ బ్యాంక్ ఖాతా బ్లాక్ చేయబడుతుంది",
         ],
         "validation": {
             "should_not_crash": True,
@@ -234,7 +209,7 @@ EDGE_CASE_SCENARIOS = [
         "description": "Kannada Script",
         "expected_behavior": "Should detect and translate",
         "messages": [
-            "ನಿಮ್ಮ ಬ್ಯಾಂಕ್ ಖಾತೆಯನ್ನು ನಿರ್ಬಂಧಿಸಲಾಗುತ್ತದೆ",  # Your bank account will be blocked
+            "ನಿಮ್ಮ ಬ್ಯಾಂಕ್ ಖಾತೆಯನ್ನು ನಿರ್ಬಂಧಿಸಲಾಗುತ್ತದೆ",
         ],
         "validation": {
             "should_not_crash": True,
@@ -242,22 +217,19 @@ EDGE_CASE_SCENARIOS = [
         }
     },
     
-    # ========================================================================
-    # CATEGORY 6: PHONE NUMBER FORMAT VARIATIONS
-    # ========================================================================
     {
         "id": "EDGE_PHONE_13",
         "category": "Phone Formats",
         "description": "Various Phone Number Formats",
         "expected_behavior": "Should extract and normalize all formats",
         "messages": [
-            "Call me at 9876543210",                          # Plain 10 digits
-            "My number is +91-9876543210",                    # With country code and dash
-            "Contact on +91 98765 43210",                     # With spaces
-            "Phone: 091-9876543210",                          # With 0 prefix
-            "WhatsApp: 98 76 54 32 10",                      # With spaces in number
-            "Ring me: +919876543210",                         # No spaces/dashes
-            "Call: 12 34 56 78 90",                          # Space separated
+            "Call me at 9876543210",             
+            "My number is +91-9876543210",                  
+            "Contact on +91 98765 43210",    
+            "Phone: 091-9876543210",           
+            "WhatsApp: 98 76 54 32 10",               
+            "Ring me: +919876543210",             
+            "Call: 12 34 56 78 90",             
         ],
         "validation": {
             "should_extract_phones": True,
@@ -266,9 +238,6 @@ EDGE_CASE_SCENARIOS = [
         }
     },
     
-    # ========================================================================
-    # CATEGORY 7: HTTP vs HTTPS URL SECURITY
-    # ========================================================================
     {
         "id": "EDGE_URL_14",
         "category": "URL Security",
@@ -328,9 +297,6 @@ EDGE_CASE_SCENARIOS = [
         }
     },
     
-    # ========================================================================
-    # CATEGORY 8: RATE LIMITING
-    # ========================================================================
     {
         "id": "EDGE_RATE_18",
         "category": "Rate Limiting",
@@ -344,17 +310,14 @@ EDGE_CASE_SCENARIOS = [
         }
     },
     
-    # ========================================================================
-    # CATEGORY 9: HOMOGRAPH ATTACKS
-    # ========================================================================
     {
         "id": "EDGE_HOMOGRAPH_19",
         "category": "Homograph Attack",
         "description": "Cyrillic Lookalike Characters",
         "expected_behavior": "Should detect fake characters",
         "messages": [
-            "Update your account at https://ѕbi.co.in/verify",  # Cyrillic 's'
-            "Visit https://hdfсbank.com/login"  # Cyrillic 'c'
+            "Update your account at https://ѕbi.co.in/verify",
+            "Visit https://hdfсbank.com/login"
         ],
         "validation": {
             "should_detect_scam": True,
@@ -363,9 +326,6 @@ EDGE_CASE_SCENARIOS = [
         }
     },
     
-    # ========================================================================
-    # CATEGORY 10: MIXED EDGE CASES
-    # ========================================================================
     {
         "id": "EDGE_MIXED_20",
         "category": "Mixed Edge Cases",
@@ -393,7 +353,7 @@ EDGE_CASE_SCENARIOS = [
         "description": "Cipher + Scam Indicators",
         "expected_behavior": "Should decode and detect scam",
         "messages": [
-            "20 18 1 14 19 6 5 18 18 19 5 14 4 15 20 16 14 15 23",  # TRANSFER SEND OTP NOW
+            "20 18 1 14 19 6 5 18 18 19 5 14 4 15 20 16 14 15 23",
             "Then click: http://scam-site.xyz/verify",
             "UPI: hacker@paytm"
         ],
@@ -410,7 +370,7 @@ EDGE_CASE_SCENARIOS = [
         "description": "Multi-Language + Phone Numbers",
         "expected_behavior": "Should translate and extract intelligence",
         "messages": [
-            "आपका खाता ब्लॉक होगा। कॉल करें: 9876543210",  # Hindi + phone
+            "आपका खाता ब्लॉक होगा। कॉल करें: 9876543210",
         ],
         "validation": {
             "should_translate": True,
@@ -419,9 +379,6 @@ EDGE_CASE_SCENARIOS = [
         }
     },
     
-    # ========================================================================
-    # CATEGORY 11: SPECIAL CHARACTERS AND ENCODING
-    # ========================================================================
     {
         "id": "EDGE_SPECIAL_23",
         "category": "Special Characters",
@@ -440,9 +397,6 @@ EDGE_CASE_SCENARIOS = [
         }
     },
     
-    # ========================================================================
-    # CATEGORY 12: LEGITIMATE MESSAGES (FALSE POSITIVE CHECK)
-    # ========================================================================
     {
         "id": "EDGE_LEGIT_24",
         "category": "Legitimate Messages",
@@ -459,9 +413,6 @@ EDGE_CASE_SCENARIOS = [
         }
     },
     
-    # ========================================================================
-    # CATEGORY 13: MALFORMED DATA
-    # ========================================================================
     {
         "id": "EDGE_MALFORMED_25",
         "category": "Malformed Data",
@@ -469,7 +420,7 @@ EDGE_CASE_SCENARIOS = [
         "expected_behavior": "Should handle gracefully",
         "messages": [
             "Your account...###ERROR###...blocked",
-            "OTP: �����",  # Corrupted text
+            "OTP: �����",
             "Call +++---91---+++",
             "http://...broken...url...com"
         ],
@@ -479,10 +430,6 @@ EDGE_CASE_SCENARIOS = [
         }
     },
 ]
-
-# ============================================================================
-# HELPER FUNCTIONS
-# ============================================================================
 
 def print_banner():
     print(f"{Colors.HEADER}{'='*100}")
@@ -536,24 +483,19 @@ def extract_intelligence(msg: str) -> Dict:
         'bank_accounts': []
     }
     
-    # URLs
     urls = re.findall(r'https?://[^\s]+', msg)
     intel['urls'] = urls
     
-    # Phone numbers - multiple formats
     phones = re.findall(r'\+?91[\s-]?\d{2}[\s-]?\d{2}[\s-]?\d{2}[\s-]?\d{2}[\s-]?\d{2}|\+?91[\s-]?\d{10}|\b0?91[\s-]?\d{10}\b|\b[6-9]\d[\s-]?\d{2}[\s-]?\d{2}[\s-]?\d{2}[\s-]?\d{2}\b|\b[6-9]\d{9}\b', msg)
     intel['phones'] = phones
     
-    # Amounts
     amounts = re.finditer(r'(?:Rs\.?|₹|INR)\s*(\d+(?:,\d{3})*)(?:\.(\d+))?\s*(lakh|lakhs|crore|crores)?', msg, re.IGNORECASE)
     for m in amounts:
         intel['amounts'].append(m.group(0))
     
-    # UPI IDs
     upi = re.findall(r'[\w\.-]+@(?:paytm|oksbi|okicici|okaxis|okhdfcbank|okbizaxis|ybl|ibl|apl|axl)', msg, re.IGNORECASE)
     intel['upi_ids'] = upi
     
-    # Bank accounts
     accounts = re.findall(r'\b\d{9,18}\b', msg)
     intel['bank_accounts'] = [acc for acc in accounts if not re.fullmatch(r'[6-9]\d{9}', acc)]
     
@@ -571,7 +513,6 @@ def validate_response(response_data: dict, validation: dict, scenario_id: str) -
     reply = response_data.get('reply', '')
     scam_detected = response_data.get('scam_detected', None)
     
-    # Check if should respond
     if validation.get('should_respond', True):
         if reply:
             results['passed'] += 1
@@ -580,7 +521,6 @@ def validate_response(response_data: dict, validation: dict, scenario_id: str) -
             results['failed'] += 1
             results['details'].append(f"{Colors.FAIL}✗ No response received{Colors.ENDC}")
     
-    # Check expected keywords
     if 'expected_keywords' in validation:
         found = any(kw.lower() in reply.lower() for kw in validation['expected_keywords'])
         if found:
@@ -590,7 +530,6 @@ def validate_response(response_data: dict, validation: dict, scenario_id: str) -
             results['warnings'] += 1
             results['details'].append(f"{Colors.WARNING}⚠ Missing expected keywords{Colors.ENDC}")
     
-    # Check scam detection
     if 'should_detect_scam' in validation:
         expected = validation['should_detect_scam']
         if scam_detected == expected:
@@ -630,20 +569,16 @@ def run_edge_case_scenario(scenario: Dict):
         msg_display = msg_text if len(msg_text) <= 100 else msg_text[:97] + "..."
         print(f"{Colors.WARNING}📤 Message {i+1}/{len(scenario['messages'])}:{Colors.ENDC} {msg_display}")
         
-        # Show message stats
         print(f"   ├─ Length: {len(msg_text)} characters")
         
-        # Check for special characteristics
         if len(msg_text) == 0:
             print(f"   ├─ {Colors.YELLOW}⚠ Empty message{Colors.ENDC}")
         elif len(msg_text) > 1000:
             print(f"   ├─ {Colors.YELLOW}⚠ Long message (truncation expected){Colors.ENDC}")
         
-        # Check for non-ASCII (multi-language)
         if any(ord(c) > 127 for c in msg_text):
             print(f"   ├─ {Colors.CYAN}🌐 Contains non-ASCII characters (translation may occur){Colors.ENDC}")
         
-        # Extract intelligence
         msg_intel = extract_intelligence(msg_text)
         if any(msg_intel.values()):
             print(f"   ├─ {Colors.MAGENTA}📊 Intelligence in message:{Colors.ENDC}")
@@ -652,7 +587,6 @@ def run_edge_case_scenario(scenario: Dict):
                     total_intel[key].extend(value)
                     print(f"   │  └─ {key}: {len(value)} item(s)")
         
-        # Construct payload
         payload = {
             "sessionId": session_id,
             "message": {
@@ -688,7 +622,6 @@ def run_edge_case_scenario(scenario: Dict):
                 
                 test_results['successful'] += 1
                 
-                # Update history
                 history.append({"sender": "scammer", "text": msg_text, "timestamp": int(time.time()*1000)})
                 history.append({"sender": "user", "text": reply, "timestamp": int(time.time()*1000)})
                 
@@ -715,17 +648,14 @@ def run_edge_case_scenario(scenario: Dict):
         
         print()
         
-        # Small delay between messages
         if i < len(scenario['messages']) - 1:
             time.sleep(0.5)
     
-    # Validation
     print(f"{Colors.CYAN}{'─'*100}{Colors.ENDC}")
     print(f"{Colors.BOLD}📋 VALIDATION RESULTS:{Colors.ENDC}\n")
     
     validation = scenario.get('validation', {})
     
-    # Should not crash
     if validation.get('should_not_crash', True):
         if test_results['errors'] == 0:
             print(f"{Colors.GREEN}✓ Did not crash{Colors.ENDC}")
@@ -734,7 +664,6 @@ def run_edge_case_scenario(scenario: Dict):
             print(f"{Colors.FAIL}✗ System crashed or errored{Colors.ENDC}")
             test_results['validations']['failed'] += 1
     
-    # Intelligence extraction checks
     if validation.get('should_extract_phones'):
         if total_intel['phones']:
             print(f"{Colors.GREEN}✓ Extracted {len(total_intel['phones'])} phone number(s){Colors.ENDC}")
@@ -767,7 +696,6 @@ def run_edge_case_scenario(scenario: Dict):
             print(f"{Colors.FAIL}✗ Failed to extract UPI IDs{Colors.ENDC}")
             test_results['validations']['failed'] += 1
     
-    # Show intelligence summary
     print(f"\n{Colors.MAGENTA}📊 TOTAL INTELLIGENCE EXTRACTED:{Colors.ENDC}")
     total_items = sum(len(v) for v in total_intel.values())
     if total_items > 0:
@@ -782,7 +710,6 @@ def run_edge_case_scenario(scenario: Dict):
     else:
         print(f"   └─ {Colors.WARNING}No intelligence extracted{Colors.ENDC}")
     
-    # Test summary
     print(f"\n{Colors.BOLD}📈 TEST SUMMARY:{Colors.ENDC}")
     print(f"   ├─ Messages Sent: {test_results['total_messages']}")
     print(f"   ├─ Successful: {Colors.GREEN}{test_results['successful']}{Colors.ENDC}")
@@ -792,7 +719,6 @@ def run_edge_case_scenario(scenario: Dict):
           f"{Colors.FAIL}{test_results['validations']['failed']} failed{Colors.ENDC}, "
           f"{Colors.WARNING}{test_results['validations']['warnings']} warnings{Colors.ENDC}")
     
-    # Overall result
     overall_pass = (test_results['failed'] == 0 and 
                    test_results['errors'] == 0 and 
                    test_results['validations']['failed'] == 0)
@@ -819,12 +745,10 @@ def print_final_summary(all_results: List[Dict]):
     failed_msgs = sum(r.get('failed', 0) for r in all_results)
     error_msgs = sum(r.get('errors', 0) for r in all_results)
     
-    # Calculate validation totals
     total_val_passed = sum(r.get('validations', {}).get('passed', 0) for r in all_results)
     total_val_failed = sum(r.get('validations', {}).get('failed', 0) for r in all_results)
     total_val_warnings = sum(r.get('validations', {}).get('warnings', 0) for r in all_results)
     
-    # Category breakdown
     categories = {}
     for i, result in enumerate(all_results):
         scenario = EDGE_CASE_SCENARIOS[i]
@@ -860,7 +784,6 @@ def print_final_summary(all_results: List[Dict]):
         status = f"{Colors.GREEN}✓{Colors.ENDC}" if stats['failed'] == 0 else f"{Colors.FAIL}✗{Colors.ENDC}"
         print(f"   {status} {cat}: {stats['passed']}/{total} passed")
     
-    # Final verdict
     print(f"\n{Colors.HEADER}{'='*100}{Colors.ENDC}")
     if failed_tests == 0:
         print(f"{Colors.GREEN}{Colors.BOLD}{'🎉 ALL EDGE CASES PASSED! SYSTEM IS ROBUST! 🎉':^100}{Colors.ENDC}")
@@ -869,10 +792,6 @@ def print_final_summary(all_results: List[Dict]):
     else:
         print(f"{Colors.FAIL}{Colors.BOLD}{'❌ MULTIPLE FAILURES - SYSTEM NEEDS WORK ❌':^100}{Colors.ENDC}")
     print(f"{Colors.HEADER}{'='*100}{Colors.ENDC}\n")
-
-# ============================================================================
-# MAIN EXECUTION
-# ============================================================================
 
 if __name__ == "__main__":
     print_banner()
@@ -894,7 +813,6 @@ if __name__ == "__main__":
         
         result = run_edge_case_scenario(scenario)
         
-        # Add overall pass/fail
         result['overall_pass'] = (
             result['failed'] == 0 and 
             result['errors'] == 0 and 
@@ -903,11 +821,9 @@ if __name__ == "__main__":
         
         all_results.append(result)
         
-        # Pause between tests
         if i < len(EDGE_CASE_SCENARIOS):
             time.sleep(2)
     
-    # Print final summary
     print_final_summary(all_results)
     
     print(f"{Colors.CYAN}Test suite completed at {datetime.now().strftime('%H:%M:%S')}{Colors.ENDC}")
