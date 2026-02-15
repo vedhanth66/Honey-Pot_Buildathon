@@ -29,19 +29,19 @@ logger = logging.getLogger(__name__)
 
 API_KEY = os.getenv("API_KEY", "Honey-Pot_Buildathon-123456")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma3:4b-it-qat")
-CALLBACK_URL = "https://hackathon.guvi.in/api/updateHoneyPotFinalResult"
+CALLBACK_URL = "https://hackathon.guvi.in/api/updateHoneyPotFinalResult   "
 
 class AdvancedTextNormalizer:
     
     HOMOGRAPH_MAP = {
         'а': 'a', 'е': 'e', 'і': 'i', 'о': 'o', 'р': 'p', 'с': 'c', 'у': 'y', 'х': 'x',
         'А': 'A', 'В': 'B', 'Е': 'E', 'К': 'K', 'М': 'M', 'Н': 'H', 'О': 'O', 'Р': 'P',
-        'С': 'C', 'Т': 'T', 'Х': 'X'
+        'С': 'C', 'Т': 'T', 'Х': 'X', 'Ү': 'Y'
     }
     
     CHAR_SUBSTITUTIONS = {
         '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's', '7': 't', '8': 'b',
-        '@': 'a', '$': 's', '!': 'i', '|': 'l'
+        '@': 'a', '$': 's', '!': 'i', '|': 'l', '9': 'g', '6': 'b'
     }
     
     @staticmethod
@@ -98,13 +98,13 @@ class AdvancedTextNormalizer:
     
     @staticmethod
     def detect_reverse_text(text: str) -> Tuple[bool, str]:
-        if len(text) > 50:
+        if len(text) > 100:
             return False, ""
         
         reversed_text = text[::-1].lower()
         
         dangerous_keywords = ['otp', 'password', 'urgent', 'bank', 'account', 
-                            'verify', 'click', 'blocked', 'prize']
+                            'verify', 'click', 'blocked', 'prize', 'tpircs', 'nepo', 'drowssap']
         
         for keyword in dangerous_keywords:
             if keyword in reversed_text:
@@ -138,16 +138,16 @@ class AdvancedPatternDetector:
             numeric_density = digits / total_chars
             
             if numeric_density > 0.4:
-                score += 0.25
+                score += 0.35
                 indicators.append(f"High numeric density: {numeric_density:.0%}")
         
         digit_blocks = re.findall(r'\d{4,}', text)
         if len(digit_blocks) >= 3:
-            score += 0.20
+            score += 0.30
             indicators.append(f"Multiple digit blocks: {len(digit_blocks)}")
         
         if re.search(r'(?:ref|reference|txn|transaction|id)[\s:#-]*\d{6,}', text, re.IGNORECASE):
-            score += 0.15
+            score += 0.20
             indicators.append("Reference number pattern")
         
         return score, indicators
@@ -170,7 +170,7 @@ class AdvancedPatternDetector:
         
         for pattern in callback_patterns:
             if re.search(pattern, text, re.IGNORECASE):
-                score += 0.30
+                score += 0.40
                 indicators.append(f"Callback phishing: {pattern}")
                 break
         
@@ -181,14 +181,14 @@ class AdvancedPatternDetector:
         missed_call_keywords = [
             'missed call', 'give missed call', 'dial and disconnect',
             'flash call', 'ring back', 'call back urgently',
-            'give call', 'call kar do'
+            'give call', 'call kar do', 'missed call de'
         ]
         
         text_lower = text.lower()
         for keyword in missed_call_keywords:
             if keyword in text_lower:
                 logger.info(f"MISSED CALL SCAM DETECTED: '{keyword}'")
-                return 0.85, ScamCategory.MISSED_CALL
+                return 0.90, ScamCategory.MISSED_CALL
         
         return 0.0, ScamCategory.UNKNOWN
     
@@ -206,7 +206,7 @@ class AdvancedPatternDetector:
         ]
         
         if small_amounts and any(kw in text.lower() for kw in psychology_keywords):
-            score += 0.40
+            score += 0.50
             indicators.append(f"Small fee scam pattern: ₹{small_amounts[0]}")
         
         return score, indicators
@@ -217,16 +217,16 @@ class AdvancedPatternDetector:
         score = 0.0
         
         legal_keywords = {
-            'fir': 0.35,
-            'arrest warrant': 0.40,
-            'court notice': 0.35,
-            'legal action': 0.30,
-            'police case': 0.35,
-            'cyber cell': 0.30,
-            'income tax raid': 0.40,
-            'tax notice': 0.30,
-            'prosecution': 0.35,
-            'jail': 0.30
+            'fir': 0.40,
+            'arrest warrant': 0.45,
+            'court notice': 0.40,
+            'legal action': 0.35,
+            'police case': 0.40,
+            'cyber cell': 0.35,
+            'income tax raid': 0.45,
+            'tax notice': 0.35,
+            'prosecution': 0.40,
+            'jail': 0.35
         }
         
         text_lower = text.lower()
@@ -236,7 +236,7 @@ class AdvancedPatternDetector:
                 indicators.append(f"Legal threat: {keyword}")
         
         if score > 0 and any(w in text_lower for w in ['urgent', 'immediate', 'today', 'now']):
-            score += 0.20
+            score += 0.25
             indicators.append("Legal threat with urgency")
         
         return min(score, 1.0), indicators
@@ -259,7 +259,7 @@ class SocialEngineeringAnalyzer:
         
         for pattern in verification_patterns:
             if re.search(pattern, text, re.IGNORECASE):
-                score += 0.35
+                score += 0.40
                 indicators.append(f"Fake verification request")
                 break
         
@@ -296,7 +296,7 @@ class SocialEngineeringAnalyzer:
                 break
         
         if len(found_stages) >= 2 and current_stage == 'sensitive':
-            score += 0.30
+            score += 0.40
             indicators.append(f"Classic scam sequence: {' → '.join(found_stages)} → {current_stage}")
         
         return score, indicators
@@ -319,7 +319,7 @@ class SocialEngineeringAnalyzer:
                 reassurance_count += 1
         
         if reassurance_count >= 2:
-            score += 0.25
+            score += 0.30
             indicators.append(f"Repeated reassurance: {reassurance_count} instances")
         
         return score, indicators
@@ -342,11 +342,11 @@ class SocialEngineeringAnalyzer:
         formal_count = sum(1 for pattern in formal_patterns if re.search(pattern, text_lower))
         
         if formal_count >= 2:
-            score += 0.20
+            score += 0.25
             indicators.append("Formal template structure")
         
         if text_lower.startswith('dear customer') or text_lower.startswith('dear sir'):
-            score += 0.15
+            score += 0.20
             indicators.append("Generic salutation")
         
         return score, indicators
@@ -366,7 +366,7 @@ class SocialEngineeringAnalyzer:
         
         for pattern in placeholder_patterns:
             if re.search(pattern, text):
-                score += 0.25
+                score += 0.30
                 indicators.append(f"Placeholder detected: {pattern}")
         
         return min(score, 0.75), indicators
@@ -388,7 +388,7 @@ class SocialEngineeringAnalyzer:
         
         for pattern in countdown_patterns:
             if re.search(pattern, text, re.IGNORECASE):
-                score += 0.30
+                score += 0.35
                 indicators.append("Countdown manipulation")
                 break
         
@@ -411,7 +411,7 @@ class LinguisticAnalyzer:
         has_casual = any(word in text_lower for word in casual_words)
         
         if has_professional and has_casual:
-            score += 0.25
+            score += 0.30
             indicators.append("Tone inconsistency: formal + casual mix")
         
         return score, indicators
@@ -432,7 +432,7 @@ class LinguisticAnalyzer:
         has_reward = any(term in text_lower for term in reward_terms)
         
         if has_authority and has_reward:
-            score += 0.45
+            score += 0.55
             indicators.append("CRITICAL: Authority + Reward combo (very strong fraud signal)")
         
         return score, indicators
@@ -443,12 +443,12 @@ class LinguisticAnalyzer:
         score = 0.0
         
         dangerous_combos = [
-            (['otp', 'pin', 'password'], ['urgent', 'immediate', 'now'], 0.50),
-            (['bank', 'account'], ['blocked', 'suspended', 'freeze'], 0.45),
-            (['refund', 'cashback'], ['click', 'link', 'verify'], 0.40),
-            (['police', 'legal', 'fir'], ['payment', 'fine', 'amount'], 0.50),
-            (['prize', 'won', 'lottery'], ['claim', 'verify', 'confirm'], 0.40),
-            (['verify', 'confirm'], ['immediately', 'urgent', 'now'], 0.35)
+            (['otp', 'pin', 'password'], ['urgent', 'immediate', 'now'], 0.55),
+            (['bank', 'account'], ['blocked', 'suspended', 'freeze'], 0.50),
+            (['refund', 'cashback'], ['click', 'link', 'verify'], 0.45),
+            (['police', 'legal', 'fir'], ['payment', 'fine', 'amount'], 0.55),
+            (['prize', 'won', 'lottery'], ['claim', 'verify', 'confirm'], 0.45),
+            (['verify', 'confirm'], ['immediately', 'urgent', 'now'], 0.40)
         ]
         
         text_lower = text.lower()
@@ -475,7 +475,7 @@ class LinguisticAnalyzer:
         politeness_count = sum(text_lower.count(word) for word in politeness_words)
         
         if politeness_count >= 3:
-            score += 0.20
+            score += 0.25
             indicators.append(f"Excessive politeness: {politeness_count} markers")
         
         return score, indicators
@@ -494,7 +494,7 @@ class LinguisticAnalyzer:
         step_count = sum(1 for pattern in step_patterns if re.search(pattern, text, re.IGNORECASE | re.MULTILINE))
         
         if step_count >= 2:
-            score += 0.25
+            score += 0.30
             indicators.append("Structured phishing instructions")
         
         return score, indicators
@@ -515,7 +515,7 @@ class LinguisticAnalyzer:
         
         for phrase in confidentiality_phrases:
             if phrase in text_lower:
-                score += 0.35
+                score += 0.40
                 indicators.append("Confidentiality manipulation")
                 break
         
@@ -575,7 +575,7 @@ class ContextIntelligenceAnalyzer:
                                'another', 'and', 'finally', 'last step']
             
             if any(word in current_lower for word in escalation_words):
-                score += 0.30
+                score += 0.35
                 indicators.append("Exploitation escalation after compliance")
         
         return score, indicators
@@ -594,7 +594,7 @@ class ContextIntelligenceAnalyzer:
             momentum = current_score - prev_confidence
             
             if momentum > 0.4:
-                score += 0.20
+                score += 0.25
                 indicators.append(f"Suspicion spike: +{momentum:.0%}")
         
         return score, indicators
@@ -628,10 +628,10 @@ class ContextIntelligenceAnalyzer:
                     domain = urlparse(url.lower()).netloc
                     
                     if detected_topic == 'bank' and 'bank' not in domain:
-                        score += 0.30
+                        score += 0.35
                         indicators.append(f"URL mismatch: {detected_topic} topic but domain {domain}")
                     elif detected_topic == 'govt' and '.gov.in' not in domain:
-                        score += 0.35
+                        score += 0.40
                         indicators.append(f"Fake govt domain: {domain}")
                 except:
                     pass
@@ -650,10 +650,10 @@ class ContextIntelligenceAnalyzer:
         has_action = any(w in text_lower for w in ['pay', 'send', 'transfer', 'click', 'share'])
         
         if has_amount and has_urgency and has_action:
-            score += 0.50
+            score += 0.60
             indicators.append("CRITICAL: Amount + Urgency + Action (classic scam)")
         elif has_amount and (has_urgency or has_action):
-            score += 0.30
+            score += 0.35
             indicators.append("Monetary pressure detected")
         
         return score, indicators
@@ -687,7 +687,7 @@ class ContextIntelligenceAnalyzer:
             has_group2 = any(term in text_lower for term in group2)
             
             if has_group1 and has_group2:
-                score += 0.40
+                score += 0.45
                 indicators.append(f"CONTRADICTION: {reason}")
         
         return min(score, 1.0), indicators
@@ -698,9 +698,9 @@ class ContextIntelligenceAnalyzer:
             return 0.0
         
         if turn_number >= 5:
-            return 0.25
+            return 0.30
         elif turn_number >= 3:
-            return 0.15
+            return 0.20
         
         return 0.0
     
@@ -756,7 +756,7 @@ class ContextIntelligenceAnalyzer:
                     distance = abs(idx1 - idx2)
                     
                     if distance <= 5:
-                        score += 0.25
+                        score += 0.30
                         indicators.append(f"High-risk proximity: '{word1}' near '{word2}'")
                 except:
                     pass
@@ -1193,14 +1193,14 @@ class AdvancedDetector:
             lottery_count = sum(1 for word in lottery_keywords if word in text)
             if lottery_count >= 2:
                 indicators.append(f"LOTTERY_SCAM: {lottery_count} indicators ({label})")
-                score += min(lottery_count * 0.35, 0.90)
+                score += min(lottery_count * 0.40, 0.95)
             
             refund_keywords = ['refund', 'cashback', 'reversal', 'credit back', 'approved', 
                              'initiated', 'failed', 'transaction', 'processing']
             refund_count = sum(1 for word in refund_keywords if word in text)
             if refund_count >= 2:
                 indicators.append(f"REFUND_SCAM: {refund_count} indicators ({label})")
-                score += min(refund_count * 0.35, 0.85)
+                score += min(refund_count * 0.40, 0.90)
             
             for pattern_name, pattern in self.CRITICAL_PATTERNS.items():
                 matches = re.findall(pattern, text)
@@ -1209,15 +1209,15 @@ class AdvancedDetector:
                     indicators.append(f"CRITICAL: {pattern_name} ({match_count} matches, {label})")
                     
                     if pattern_name in ['otp_request', 'account_request', 'upi_request']:
-                        score += min(match_count * 0.40, 0.50)
+                        score += min(match_count * 0.60, 0.80)
                     elif pattern_name == 'prize_claim':
-                        score += min(match_count * 0.35, 0.70)
+                        score += min(match_count * 0.55, 0.90)
                     elif pattern_name == 'refund_bait':
-                        score += min(match_count * 0.40, 0.60)
+                        score += min(match_count * 0.60, 0.80)
                     elif pattern_name in ['bank_impersonation', 'urgent_threat']:
-                        score += min(match_count * 0.30, 0.45)
+                        score += min(match_count * 0.50, 0.70)
                     else:
-                        score += min(match_count * 0.25, 0.40)
+                        score += min(match_count * 0.45, 0.60)
         
         impersonation_keywords = [
             'sbi', 'hdfc', 'icici', 'axis', 'pnb', 'bob', 'canara', 'kotak',
@@ -1228,7 +1228,7 @@ class AdvancedDetector:
             if keyword in norm_lower:
                 indicators.append(f"IMPERSONATION: {keyword}")
                 impersonation = keyword
-                score += 0.20
+                score += 0.25
                 break
         
         urgency_markers = [
@@ -1240,7 +1240,7 @@ class AdvancedDetector:
         urgency_count = sum(1 for marker in urgency_markers if marker in norm_lower)
         if urgency_count > 0:
             indicators.append(f"URGENCY: {urgency_count} markers")
-            score += min(urgency_count * 0.15, 0.45)
+            score += min(urgency_count * 0.20, 0.50)
         
         urls = re.findall(r'https?://[^\s]+', message)
         for url in urls:
@@ -1255,18 +1255,18 @@ class AdvancedDetector:
 
                 if is_suspicious:
                     indicators.append(f"SUSPICIOUS_URL: {risk_score} risk")
-                    score += min((risk_score / 100) * 0.50, 0.50)
+                    score += min((risk_score / 100) * 0.55, 0.55)
             except Exception as e:
                 logger.error(f"Pattern URL analysis failed: {e}")
                 indicators.append("SUSPICIOUS_URL: analysis_error")
-                score += 0.25
+                score += 0.30
         
         pressure_words = ['must', 'need to', 'have to', 'required', 'mandatory', 
                          'failure to', 'cancellation']
         pressure_count = sum(1 for word in pressure_words if word in norm_lower)
         if pressure_count >= 2:
             indicators.append(f"PRESSURE: {pressure_count} tactics")
-            score += 0.15
+            score += 0.20
         
         return min(score, 1.0), indicators, impersonation
     
@@ -1302,10 +1302,10 @@ class AdvancedDetector:
                 prev_stages.append("sensitive")
 
         if stage not in prev_stages:
-            return 0.15
+            return 0.20
 
         if len(set(prev_stages)) >= 3:
-            return 0.25
+            return 0.30
 
         return 0.0
     
@@ -1314,22 +1314,22 @@ class AdvancedDetector:
         msg = message.strip()
 
         if msg.count('!') >= 3:
-            score += 0.1
+            score += 0.15
 
         caps_ratio = sum(1 for c in msg if c.isupper()) / max(len(msg), 1)
         if caps_ratio > 0.4:
-            score += 0.15
+            score += 0.20
 
         if "dear customer" in msg.lower():
-            score += 0.15
+            score += 0.20
 
         if msg.lower().count("urgent") > 1:
-            score += 0.1
+            score += 0.15
 
         if not any(name in msg.lower() for name in ['mr', 'ms', 'rajesh', 'arjun']):
-            score += 0.1
+            score += 0.15
 
-        return min(score, 0.3)
+        return min(score, 0.35)
     
     def semantic_analysis(self, message: str) -> Tuple[float, ScamCategory]:
         message_lower = message.lower()
@@ -1354,43 +1354,43 @@ class AdvancedDetector:
                         'kbc', 'draw', 'selected', 'claim', 'reward']
         lottery_count = sum(1 for word in lottery_words if word in message_lower)
         if lottery_count > 0:
-            category_scores[ScamCategory.LOTTERY] += min(lottery_count * 0.30, 0.80)
+            category_scores[ScamCategory.LOTTERY] += min(lottery_count * 0.50, 0.95)
             
             strong_lottery = ['congratulations', 'won', 'prize', 'lucky draw', 'kbc']
             if sum(1 for w in strong_lottery if w in message_lower) >= 2:
-                category_scores[ScamCategory.LOTTERY] += 0.15
+                category_scores[ScamCategory.LOTTERY] += 0.20
         
         refund_words = ['refund', 'cashback', 'reversal', 'credit back', 'approved', 
                        'initiated', 'failed', 'transaction failed', 'server error', 
                        'processing error']
         refund_count = sum(1 for word in refund_words if word in message_lower)
         if refund_count > 0:
-            category_scores[ScamCategory.REFUND] += min(refund_count * 0.45, 0.95)
+            category_scores[ScamCategory.REFUND] += min(refund_count * 0.60, 1.0)
         
         if any(word in message_lower for word in ['bank', 'account', 'atm', 'debit', 
                                                    'credit', 'balance', 'blocked', 
                                                    'suspended', 'freeze']):
-            category_scores[ScamCategory.BANKING] += 0.45
+            category_scores[ScamCategory.BANKING] += 0.65
         
         if any(word in message_lower for word in ['upi', 'phonepe', 'paytm', 
                                                    'google pay', 'gpay', 'bhim']):
-            category_scores[ScamCategory.UPI] += 0.50
+            category_scores[ScamCategory.UPI] += 0.70
         
         if any(word in message_lower for word in ['kyc', 'know your customer', 
                                                    'pending kyc', 'update kyc']):
-            category_scores[ScamCategory.KYC] += 0.40
+            category_scores[ScamCategory.KYC] += 0.45
         
         if any(word in message_lower for word in ['virus', 'malware', 'infected', 
                                                    'tech support', 'microsoft', 'computer']):
-            category_scores[ScamCategory.TECH_SUPPORT] += 0.50
+            category_scores[ScamCategory.TECH_SUPPORT] += 0.55
         
         if any(word in message_lower for word in ['click', 'link', 'download', 
                                                    'install', 'website', 'verify now']):
-            category_scores[ScamCategory.PHISHING] += 0.35
+            category_scores[ScamCategory.PHISHING] += 0.40
         
         semantic_matches = sum(1 for indicator in self.SEMANTIC_INDICATORS 
                              if indicator in message_lower)
-        confidence = min(semantic_matches * 0.15, 0.7)
+        confidence = min(semantic_matches * 0.20, 0.75)
         
         best_category = max(category_scores.items(), key=lambda x: x[1])
         
@@ -1417,15 +1417,15 @@ class AdvancedDetector:
         
         for factor_type, keywords in urgency_factors.items():
             if any(kw in message_lower for kw in keywords):
-                score += 0.25
+                score += 0.40
         
         caps_ratio = sum(1 for c in message if c.isupper()) / max(len(message), 1)
         if caps_ratio > 0.3:
-            score += 0.15
+            score += 0.20
         
         exclamation_count = message.count('!')
         if exclamation_count > 2:
-            score += min(exclamation_count * 0.05, 0.20)
+            score += min(exclamation_count * 0.05, 0.25)
         
         return min(score, 1.0)
     
@@ -1519,7 +1519,7 @@ class AdvancedDetector:
             fingerprint = context_analyzer.generate_template_fingerprint(message)
             is_clustered, cluster_count = context_analyzer.detect_clustered_attack(session_id, fingerprint)
             if is_clustered:
-                pattern_score += 0.25
+                pattern_score += 0.30
                 indicators.append(f"CLUSTERED ATTACK: Template used {cluster_count}x")
         
         compliance_score, compliance_indicators = ContextIntelligenceAnalyzer.detect_compliance_escalation(history, message)
@@ -1548,33 +1548,33 @@ class AdvancedDetector:
         escalation_score = self._detect_escalation(message, history)
         
         raw_confidence = (
-            pattern_score * 0.30 +
-            semantic_score * 0.15 +
-            context_score * 0.10 +
-            linguistic_score * 0.10 +
-            escalation_score * 0.05 +
-            numeric_score * 0.05 +
-            linkless_score * 0.05 +
-            legal_score * 0.05 +
-            sequencing_score * 0.03 +
-            combo_score * 0.03 +
-            phrase_combo_score * 0.03 +
-            countdown_score * 0.02 +
-            compliance_score * 0.02 +
-            money_urgency_score * 0.02 +
-            contradiction_score * 0.03 +
-            lifecycle_score * 0.02
+            pattern_score * 0.40 +
+            semantic_score * 0.25 +
+            context_score * 0.15 +
+            linguistic_score * 0.15 +
+            escalation_score * 0.10 +
+            numeric_score * 0.10 +
+            linkless_score * 0.10 +
+            legal_score * 0.10 +
+            sequencing_score * 0.08 +
+            combo_score * 0.08 +
+            phrase_combo_score * 0.08 +
+            countdown_score * 0.06 +
+            compliance_score * 0.06 +
+            money_urgency_score * 0.08 +
+            contradiction_score * 0.08 +
+            lifecycle_score * 0.05
         )
         
         if pattern_score > 0.5 and semantic_score > 0.4:
-            raw_confidence = min(raw_confidence * 1.15, 1.0)
+            raw_confidence = min(raw_confidence * 1.20, 1.0)
         
         if history and len(history) >= 3:
             repeated_pressure = sum(
                 1 for m in history if 'urgent' in m.text.lower()
             )
             if repeated_pressure >= 2:
-                raw_confidence += 0.1
+                raw_confidence += 0.15
 
         legitimacy_score = self._calculate_legitimacy_score(message, normalized_message)
         
@@ -1588,23 +1588,25 @@ class AdvancedDetector:
             final_confidence = raw_confidence * 0.6
             indicators.append(f"PARTIAL_DAMPENING: -{legitimacy_score:.2f}")
 
-        if final_confidence >= 0.65:
+        if final_confidence >= 0.30:
             is_scam = True
-        elif final_confidence >= 0.50:
-            is_scam = (context_score > 0.3) or (urgency > 0.6) or (pattern_score > 0.4)
+        elif final_confidence >= 0.20:
+            is_scam = (context_score > 0.2) or (urgency > 0.4) or (pattern_score > 0.3) or (semantic_score > 0.3)
         else:
             is_scam = False
         
         if final_confidence >= 0.90:
             threat_level = "active_exploitation"
-        elif final_confidence >= 0.85:
+        elif final_confidence >= 0.80:
             threat_level = "critical"
-        elif final_confidence >= 0.75:
+        elif final_confidence >= 0.65:
             threat_level = "high"
-        elif final_confidence >= 0.60:
+        elif final_confidence >= 0.50:
             threat_level = "medium"
         else:
             threat_level = "low"
+        
+        logger.info(f"DEBUG: raw_confidence={raw_confidence:.3f}, final_confidence={final_confidence:.3f}, is_scam={is_scam}, legitimacy={legitimacy_score:.3f}")
         
         return DetectionResult(
             is_scam=is_scam,
@@ -1799,7 +1801,7 @@ class IntelligenceExtractor:
             r'\b[6-9]\d{9}\b'
         ],
         'urls': [
-            r'https?://[^\s<>\"{}|\\^`\[\]]+[^\s<>\"{}|\\^`\[\].,]'
+            r'https?://[^\s<>"{}|\\^`\[\]]+[^\s<>"{}|\\^`\[\].,]'
         ],
         'ifsc_codes': [
             r'\b[A-Z]{4}0[A-Z0-9]{6}\b'
@@ -2714,13 +2716,13 @@ class IncomingRequest(BaseModel):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("🚀 ULTIMATE Agentic Honey-Pot v7.0 COMPETITION EDITION Starting...")
-    logger.info("✅ ALL 35 IMPROVEMENTS IMPLEMENTED")
-    logger.info("✅ Advanced text normalization with obfuscation detection")
-    logger.info("✅ Social engineering sequencing & lifecycle modeling")
-    logger.info("✅ Contradiction detection & context intelligence")
-    logger.info("✅ Enhanced persona realism with vocabulary evolution")
-    logger.info("✅ False positive dampening & legitimacy detection")
+    logger.info("ULTIMATE Agentic Honey-Pot v7.0 COMPETITION EDITION Starting...")
+    logger.info("ALL 35 IMPROVEMENTS IMPLEMENTED")
+    logger.info("Advanced text normalization with obfuscation detection")
+    logger.info("Social engineering sequencing & lifecycle modeling")
+    logger.info("Contradiction detection & context intelligence")
+    logger.info("Enhanced persona realism with vocabulary evolution")
+    logger.info("False positive dampening & legitimacy detection")
     
     async def cleanup_task():
         while True:
@@ -2870,7 +2872,7 @@ async def honeypot_endpoint(
         state = None
 
     if state is None:
-        if detection.confidence < 0.3:
+        if detection.confidence < 0.10:
             logger.info(f"Very low confidence ({detection.confidence:.3f}) - treating as legitimate")
             
             msg_lower = incoming_for_detection.lower()
@@ -2966,7 +2968,7 @@ async def honeypot_endpoint(
         logger.info(f"ENDING CONVERSATION: {session_id}")
         await send_final_callback(session_id, history, state)
     
-    return JSONResponse(content={"status": "success", "reply": reply})
+    return JSONResponse(content={"status": "success", "reply": reply, "scam_detected": detection.is_scam})
 
 @app.get("/")
 async def root():
